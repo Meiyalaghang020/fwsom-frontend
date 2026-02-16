@@ -185,14 +185,7 @@ const INITIAL_FORM = {
   page_doc_url: "",
 };
 
-const CONTENT_TYPES = [
-  { id: 1, name: "Blog" },
-  { id: 2, name: "Landing Page" },
-  { id: 3, name: "Article" },
-  { id: 4, name: "Service Page" },
-];
-
-function AddPipelineModal({ open, onClose, selectedDate, campaigns }) {
+function AddPipelineModal({ open, onClose, selectedDate, campaigns, contentTypes, stages, statuses }) {
   const [form, setForm] = useState(INITIAL_FORM);
   const [saving, setSaving] = useState(false);
 
@@ -211,16 +204,36 @@ function AddPipelineModal({ open, onClose, selectedDate, campaigns }) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Build payload matching the API structure
+      const plannedDate = selectedDate ? toDateInputValue(selectedDate) : null;
+      // Build expected date as 5 days after planned date by default
+      let expectedDate = null;
+      if (selectedDate) {
+        const exp = new Date(selectedDate);
+        exp.setDate(exp.getDate() + 5);
+        expectedDate = toDateInputValue(exp);
+      }
+
       const payload = {
-        campaign_id: form.campaign_id,
-        content_type_id: form.content_type,
-        primary_keyword: form.primary_keyword,
-        page_title: form.page_title,
-        linked_url: form.linked_url,
-        comments: form.comments,
-        page_doc_url: form.page_doc_url,
-        planned_date: selectedDate ? toDateInputValue(selectedDate) : "",
+        campaign_id: form.campaign_id ? Number(form.campaign_id) : null,
+        primary_keyword: form.primary_keyword || null,
+        page_title: form.page_title || null,
+        content_type_id: form.content_type ? Number(form.content_type) : null,
+        linked_url: form.linked_url || null,
+        comments: form.comments || null,
+        content_status: null,
+        write_status: null,
+        page_content_status: null,
+        writer_id: null,
+        page_doc_url: form.page_doc_url || null,
+        design_url: null,
+        stage: "Content",
+        pipeline_status: "Pipeline",
+        user_id: null,
+        team_id: null,
+        planned_date: plannedDate,
+        expected_date: expectedDate,
+        revised_date: null,
+        published_date: null,
       };
       await api.post("/v1/content-pipeline", payload);
       setForm(INITIAL_FORM);
@@ -288,9 +301,9 @@ function AddPipelineModal({ open, onClose, selectedDate, campaigns }) {
                 className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
               >
                 <option value="">Select Content Type</option>
-                {CONTENT_TYPES.map((ct) => (
+                {(contentTypes || []).map((ct) => (
                   <option key={ct.id} value={ct.id}>
-                    {ct.name}
+                    {ct.name.replace(/_/g, " ")}
                   </option>
                 ))}
               </select>
@@ -826,6 +839,9 @@ export default function ContentPipeline() {
         onClose={handleAddFormClose}
         selectedDate={addFormDate}
         campaigns={campaignsList}
+        contentTypes={filters?.content_types || []}
+        stages={filters?.stages || []}
+        statuses={filters?.statuses || []}
       />
     </div>
   );
