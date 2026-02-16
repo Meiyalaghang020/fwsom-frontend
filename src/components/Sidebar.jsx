@@ -6,7 +6,7 @@ import {
   Sparkles, Mail, Phone, Bot, BookOpen, Settings, Menu, Database, Search,
   Target, BarChart3, User as UserIcon, LogOut,
   Map, Megaphone, Building2, Clock, Shield, Wrench, FileText, Briefcase, KeyRound,
-  CheckSquare, Download, MessageSquare
+  CheckSquare, Download, MessageSquare, Layers
 } from "lucide-react";
 
 import clsx from "clsx";
@@ -55,6 +55,7 @@ const nav = [
           { icon: LayoutDashboard, label: "Overview", to: "/content/dashboard" },
           { icon: BookOpen, label: "Web Pages", to: "/content/web-pages" },
           { icon: Sparkles, label: "RivalFlow", to: "/content/rivalflow" },
+          { icon: Layers, label: "Pipeline", to: "/content/pipeline" },
         ],
       },
     ],

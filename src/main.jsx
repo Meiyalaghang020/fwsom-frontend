@@ -41,13 +41,14 @@ import SpamFilter from "./Setting/SpamFilter.jsx";
 import Services from "./Setting/Services.jsx";
 import SubServices from "./Pages/Resources/Services.jsx";
 import ServiceHub from "./Pages/Resources/ServiceHub.jsx";
-import Jobs from "./Setting/Jobs";
-import LogViewer from "./Setting/LogViewer";
+import Jobs from "./Setting/Jobs.jsx";
+import LogViewer from "./Setting/LogViewer.jsx";
 import Credentials from "./Setting/Credentials.jsx";
 import NavigationMapping from "./Setting/NavigationMapping.jsx";
 import StageManager from "./Resources/Stage.jsx";
 import StatusManager from "./Resources/Status.jsx";
 import RivalFlow from "./Content/RivalFlow.jsx";
+import ContentPipeline from "./Pipeline/ContentPipeline.jsx";
 import Profile from "./Pages/Profile.jsx";
 import AdhocTasks from "./Adhoc/AdhocTasks.jsx";
 import TodoTasks from "./Todo/TodoTasks.jsx";
@@ -85,6 +86,7 @@ const routes = [
   { path: "content/dashboard", element: <ContentDashBoard /> },
   { path: "content/web-pages", element: <ContentWebPages /> },
   { path: "content/rivalflow", element: <RivalFlow /> },
+  { path: "content/pipeline", element: <ContentPipeline /> },
 
   // SEO
   { path: "seo/dashboard", element: <SeoDashBoard /> },
