@@ -1,7 +1,5 @@
 // Dashboard
 
-"use client"
-
 import { useEffect, useState, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import api from "../lib/api"
@@ -553,8 +551,8 @@ export default function ContentDashBoard() {
 
   // Fetch users and filters for task assignment
   const fetchUsers = async () => {
+    const token = localStorage.getItem("access_token");
     try {
-      const token = localStorage.getItem("access_token");
       const response = await api.get("/todo-tasks", {
         params: {
           current_page: 1,
@@ -1731,7 +1729,6 @@ export default function ContentDashBoard() {
                           </div>
                       )}
                     </div>
-                  </div>
 
                     {/* Due Date */}
                     <div>
