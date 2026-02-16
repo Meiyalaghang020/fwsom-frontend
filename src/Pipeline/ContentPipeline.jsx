@@ -87,13 +87,13 @@ function getStageColor(stage) {
 /* ------------------------------------------------------------------ */
 function StatCard({ icon: Icon, label, value, color }) {
   return (
-    <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${color}`}>
+    <div className="flex items-center gap-3 sm:gap-4 rounded-xl border border-slate-200 bg-white p-3.5 sm:p-5 shadow-sm">
+      <div className={`flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-lg ${color}`}>
         <Icon size={20} />
       </div>
-      <div>
-        <p className="text-sm font-medium text-slate-500">{label}</p>
-        <p className="text-2xl font-bold text-slate-800">{value}</p>
+      <div className="min-w-0">
+        <p className="text-xs sm:text-sm font-medium text-slate-500 truncate">{label}</p>
+        <p className="text-xl sm:text-2xl font-bold text-slate-800">{value}</p>
       </div>
     </div>
   );
@@ -111,39 +111,39 @@ function CampaignTable({ campaigns }) {
     );
   }
   return (
-    <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
+    <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col max-h-[60vh]">
+      <div className="overflow-auto flex-1 scrollbar-thin">
+        <table className="w-full min-w-[480px] text-sm">
+          <thead className="sticky top-0 z-10">
             <tr className="bg-slate-50 border-b border-slate-200">
-              <th className="px-5 py-3 text-left font-semibold text-slate-600">Campaign</th>
-              <th className="px-5 py-3 text-center font-semibold text-slate-600">Total</th>
-              <th className="px-5 py-3 text-center font-semibold text-slate-600">Services</th>
-              <th className="px-5 py-3 text-center font-semibold text-slate-600">Blogs</th>
+              <th className="px-4 py-3 text-left font-semibold text-slate-600 whitespace-nowrap sm:px-5">Campaign</th>
+              <th className="px-4 py-3 text-center font-semibold text-slate-600 whitespace-nowrap sm:px-5">Total</th>
+              <th className="px-4 py-3 text-center font-semibold text-slate-600 whitespace-nowrap sm:px-5">Services</th>
+              <th className="px-4 py-3 text-center font-semibold text-slate-600 whitespace-nowrap sm:px-5">Blogs</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {campaigns.map((c) => (
               <tr key={c.campaign_id} className="hover:bg-slate-50 transition-colors">
-                <td className="px-5 py-3 font-medium text-slate-700">
-                  <span className="inline-flex items-center gap-2">
-                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-blue-50 text-xs font-bold text-blue-600">
+                <td className="px-4 py-3 font-medium text-slate-700 sm:px-5">
+                  <span className="inline-flex items-center gap-2 whitespace-nowrap">
+                    <span className="inline-flex h-7 shrink-0 items-center justify-center rounded-md bg-blue-50 px-1.5 text-xs font-bold text-blue-600">
                       {c.campaign_short_code}
                     </span>
-                    {c.campaign_name}
+                    <span className="truncate max-w-[180px] sm:max-w-none">{c.campaign_name}</span>
                   </span>
                 </td>
-                <td className="px-5 py-3 text-center">
+                <td className="px-4 py-3 text-center sm:px-5">
                   <span className="inline-flex h-7 min-w-[28px] items-center justify-center rounded-full bg-slate-100 px-2 font-semibold text-slate-700">
                     {c.total}
                   </span>
                 </td>
-                <td className="px-5 py-3 text-center">
+                <td className="px-4 py-3 text-center sm:px-5">
                   <span className="inline-flex h-7 min-w-[28px] items-center justify-center rounded-full bg-blue-50 px-2 font-semibold text-blue-600">
                     {c.services}
                   </span>
                 </td>
-                <td className="px-5 py-3 text-center">
+                <td className="px-4 py-3 text-center sm:px-5">
                   <span className="inline-flex h-7 min-w-[28px] items-center justify-center rounded-full bg-amber-50 px-2 font-semibold text-amber-600">
                     {c.blogs}
                   </span>
@@ -151,16 +151,21 @@ function CampaignTable({ campaigns }) {
               </tr>
             ))}
           </tbody>
+        </table>
+      </div>
+      {/* Sticky total footer outside scrollable area */}
+      <div className="overflow-x-auto border-t border-slate-200 bg-slate-50 shrink-0">
+        <table className="w-full min-w-[480px] text-sm">
           <tfoot>
-            <tr className="bg-slate-50 border-t border-slate-200 font-semibold">
-              <td className="px-5 py-3 text-slate-700">Total</td>
-              <td className="px-5 py-3 text-center text-slate-700">
+            <tr className="font-semibold">
+              <td className="px-4 py-3 text-slate-700 sm:px-5">Total</td>
+              <td className="px-4 py-3 text-center text-slate-700 sm:px-5">
                 {campaigns.reduce((a, c) => a + c.total, 0)}
               </td>
-              <td className="px-5 py-3 text-center text-blue-600">
+              <td className="px-4 py-3 text-center text-blue-600 sm:px-5">
                 {campaigns.reduce((a, c) => a + c.services, 0)}
               </td>
-              <td className="px-5 py-3 text-center text-amber-600">
+              <td className="px-4 py-3 text-center text-amber-600 sm:px-5">
                 {campaigns.reduce((a, c) => a + c.blogs, 0)}
               </td>
             </tr>
@@ -764,19 +769,19 @@ export default function ContentPipeline() {
   const campaignsList = filters?.campaigns || [];
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-6">
+    <div className="min-h-screen bg-slate-50 p-3 sm:p-4 md:p-6 overflow-x-hidden">
       {/* Header */}
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Content Pipeline</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
+      <div className="mb-4 sm:mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight truncate">Content Pipeline</h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
             Overview of content pipeline statistics and progress
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <button
             onClick={() => setCalendarOpen(true)}
-            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            className="inline-flex items-center gap-1.5 sm:gap-2 rounded-lg bg-blue-600 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
           >
             <Plus size={16} />
             Add New
@@ -784,7 +789,7 @@ export default function ContentPipeline() {
           <button
             onClick={fetchPipelines}
             disabled={loading}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 sm:gap-2 rounded-lg border border-slate-300 bg-white px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-60"
           >
             <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
             Rewrite
@@ -807,7 +812,7 @@ export default function ContentPipeline() {
       ) : (
         <>
           {/* Stat Cards */}
-          <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="mb-4 sm:mb-6 grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-3">
             <StatCard
               icon={BarChart3}
               label="Total Pipelines"
