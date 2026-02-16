@@ -189,12 +189,25 @@ const INITIAL_FORM = {
   linked_url: "",
   comments: "",
   page_doc_url: "",
+  writer_id: "",
 };
 
-function AddPipelineModal({ open, onClose, selectedDate, campaigns, contentTypes, stages, statuses }) {
+function AddPipelineModal({ open, onClose, selectedDate, campaigns, contentTypes, stages, statuses, writers }) {
   const [form, setForm] = useState(INITIAL_FORM);
   const [saving, setSaving] = useState(false);
   const [fetchingPageNumber, setFetchingPageNumber] = useState(false);
+
+  // Get logged-in user info for role-based writer dropdown visibility
+  const loggedInUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const userRoleId = loggedInUser.role_id ? Number(loggedInUser.role_id) : null;
+  const userDeptId = loggedInUser.dept_id ? Number(loggedInUser.dept_id) : null;
+  const userTeamId = loggedInUser.team_id ? Number(loggedInUser.team_id) : null;
+  const userId = loggedInUser.id ? Number(loggedInUser.id) : null;
+
+  // role_id 3 + dept_id 1 => hide writer dropdown (writer is the user themselves)
+  // role_id 1, 2, 4 => show writer dropdown
+  const isWriter = userRoleId === 3 && userDeptId === 1;
+  const showWriterDropdown = [1, 2, 4].includes(userRoleId);
 
   const handleChange = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -228,6 +241,22 @@ function AddPipelineModal({ open, onClose, selectedDate, campaigns, contentTypes
         expectedDate = toDateInputValue(exp);
       }
 
+      // Determine writer_id, user_id, and team_id based on role
+      let payloadWriterId = null;
+      let payloadUserId = userId;
+      let payloadTeamId = null;
+
+      if (isWriter) {
+        // role_id 3 + dept_id 1: user is the writer, send their own id and team_id
+        payloadWriterId = userId;
+        payloadTeamId = userTeamId;
+      } else if (showWriterDropdown && form.writer_id) {
+        // role_id 1,2,4: use selected writer and their team_id
+        payloadWriterId = Number(form.writer_id);
+        const selectedWriter = (writers || []).find((w) => String(w.id) === String(form.writer_id));
+        payloadTeamId = selectedWriter ? selectedWriter.team_id : null;
+      }
+
       const payload = {
         campaign_id: form.campaign_id ? Number(form.campaign_id) : null,
         primary_keyword: form.primary_keyword || null,
@@ -239,13 +268,13 @@ function AddPipelineModal({ open, onClose, selectedDate, campaigns, contentTypes
         content_status: null,
         write_status: null,
         page_content_status: null,
-        writer_id: null,
+        writer_id: payloadWriterId,
         page_doc_url: form.page_doc_url || null,
         design_url: null,
         stage: "Content",
         pipeline_status: "Pipeline",
-        user_id: null,
-        team_id: null,
+        user_id: payloadUserId,
+        team_id: payloadTeamId,
         planned_date: plannedDate,
         expected_date: expectedDate,
         revised_date: null,
@@ -325,6 +354,25 @@ function AddPipelineModal({ open, onClose, selectedDate, campaigns, contentTypes
               </select>
             </div>
           </div>
+
+          {/* Writer Dropdown - shown only for role_id 1, 2, 4 */}
+          {showWriterDropdown && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Writer</label>
+              <select
+                value={form.writer_id}
+                onChange={(e) => handleChange("writer_id", e.target.value)}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              >
+                <option value="">Select Writer</option>
+                {(writers || []).map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Primary Keyword */}
           <div>
@@ -873,6 +921,7 @@ export default function ContentPipeline() {
         contentTypes={filters?.content_types || []}
         stages={filters?.stages || []}
         statuses={filters?.statuses || []}
+        writers={filters?.writer_id || []}
       />
     </div>
   );
