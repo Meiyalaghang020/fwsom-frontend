@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import api from "../lib/api";
 import {
   Plus,
@@ -18,6 +18,7 @@ import {
   Layers,
   BookOpen,
   Wrench,
+  Save,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -28,7 +29,7 @@ const MONTH_NAMES = [
   "January","February","March","April","May","June",
   "July","August","September","October","November","December",
 ];
-const DAY_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const DAY_NAMES = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
 
 function getDaysInMonth(year, month) {
   return new Date(year, month + 1, 0).getDate();
@@ -47,6 +48,12 @@ function isSameDay(d1, d2) {
     d1.getMonth() === d2.getMonth() &&
     d1.getDate() === d2.getDate()
   );
+}
+function toDateInputValue(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 function getStatusColor(status) {
@@ -165,9 +172,230 @@ function CampaignTable({ campaigns }) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Calendar Modal                                                     */
+/*  Add Pipeline Content Form Modal                                    */
 /* ------------------------------------------------------------------ */
-function CalendarModal({ open, onClose, pipelines, onSelectItem }) {
+const INITIAL_FORM = {
+  campaign_id: "",
+  content_type: "",
+  primary_keyword: "",
+  page_title: "",
+  page_number: "",
+  linked_url: "",
+  comments: "",
+  page_doc_url: "",
+};
+
+const CONTENT_TYPES = [
+  { id: 1, name: "Blog" },
+  { id: 2, name: "Landing Page" },
+  { id: 3, name: "Article" },
+  { id: 4, name: "Service Page" },
+];
+
+function AddPipelineModal({ open, onClose, selectedDate, campaigns }) {
+  const [form, setForm] = useState(INITIAL_FORM);
+  const [saving, setSaving] = useState(false);
+
+  // Generate a readonly page number
+  const pageNumber = form.campaign_id
+    ? (() => {
+        const camp = (campaigns || []).find((c) => String(c.id) === String(form.campaign_id));
+        return camp ? `${camp.short_code}-${String(Date.now()).slice(-4)}` : "";
+      })()
+    : "";
+
+  const handleChange = (field, value) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      // Build payload matching the API structure
+      const payload = {
+        campaign_id: form.campaign_id,
+        content_type_id: form.content_type,
+        primary_keyword: form.primary_keyword,
+        page_title: form.page_title,
+        linked_url: form.linked_url,
+        comments: form.comments,
+        page_doc_url: form.page_doc_url,
+        planned_date: selectedDate ? toDateInputValue(selectedDate) : "",
+      };
+      await api.post("/v1/content-pipeline", payload);
+      setForm(INITIAL_FORM);
+      onClose(true); // true = saved successfully, trigger refresh
+    } catch {
+      alert("Failed to save pipeline content. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleClose = () => {
+    setForm(INITIAL_FORM);
+    onClose(false);
+  };
+
+  if (!open) return null;
+
+  const dateDisplay = selectedDate
+    ? selectedDate.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
+    : "";
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-6 py-4">
+          <div>
+            <h3 className="text-lg font-bold text-slate-800">Add Pipeline Content</h3>
+            {dateDisplay && (
+              <p className="text-sm text-slate-500 mt-0.5 flex items-center gap-1.5">
+                <Calendar size={13} /> {dateDisplay}
+              </p>
+            )}
+          </div>
+          <button onClick={handleClose} className="rounded-lg p-1.5 hover:bg-slate-200 transition-colors text-slate-500">
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Form Body */}
+        <div className="px-6 py-5 space-y-5 max-h-[70vh] overflow-y-auto">
+          {/* Campaign & Content Type - side by side */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Campaign</label>
+              <select
+                value={form.campaign_id}
+                onChange={(e) => handleChange("campaign_id", e.target.value)}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              >
+                <option value="">Select Campaign</option>
+                {(campaigns || []).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Content Type</label>
+              <select
+                value={form.content_type}
+                onChange={(e) => handleChange("content_type", e.target.value)}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              >
+                <option value="">Select Content Type</option>
+                {CONTENT_TYPES.map((ct) => (
+                  <option key={ct.id} value={ct.id}>
+                    {ct.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Primary Keyword */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Primary Keyword</label>
+            <input
+              type="text"
+              value={form.primary_keyword}
+              onChange={(e) => handleChange("primary_keyword", e.target.value)}
+              placeholder="Enter primary keyword"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-700 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            />
+          </div>
+
+          {/* Page Title */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Page Title</label>
+            <input
+              type="text"
+              value={form.page_title}
+              onChange={(e) => handleChange("page_title", e.target.value)}
+              placeholder="Enter page title"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-700 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            />
+          </div>
+
+          {/* Page Number & Linked URL - side by side */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Page Number</label>
+              <input
+                type="text"
+                value={pageNumber}
+                readOnly
+                className="w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-500 shadow-sm cursor-not-allowed"
+                placeholder="Auto-generated"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Linked URL / Page URL</label>
+              <input
+                type="url"
+                value={form.linked_url}
+                onChange={(e) => handleChange("linked_url", e.target.value)}
+                placeholder="https://example.com"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-700 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              />
+            </div>
+          </div>
+
+          {/* Comments */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Comments</label>
+            <textarea
+              value={form.comments}
+              onChange={(e) => handleChange("comments", e.target.value)}
+              placeholder="Enter comments or notes"
+              rows={3}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-700 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
+            />
+          </div>
+
+          {/* Page Doc URL */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Page Doc URL</label>
+            <input
+              type="url"
+              value={form.page_doc_url}
+              onChange={(e) => handleChange("page_doc_url", e.target.value)}
+              placeholder="https://docs.google.com/..."
+              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-700 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            />
+          </div>
+        </div>
+
+        {/* Footer with Close and Save buttons */}
+        <div className="flex items-center justify-end gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4">
+          <button
+            onClick={handleClose}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2"
+          >
+            Close
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-60"
+          >
+            {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            {saving ? "Saving..." : "Save"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Calendar Modal (wider + taller, click date opens Add form)         */
+/* ------------------------------------------------------------------ */
+function CalendarModal({ open, onClose, pipelines, onSelectItem, onDateClick }) {
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
@@ -196,13 +424,12 @@ function CalendarModal({ open, onClose, pipelines, onSelectItem }) {
   };
 
   const cells = [];
-  // Leading blanks
   for (let i = 0; i < firstDay; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="w-full max-w-3xl rounded-2xl bg-white shadow-2xl overflow-hidden">
+      <div className="w-full max-w-5xl rounded-2xl bg-white shadow-2xl overflow-hidden" style={{ minHeight: "620px" }}>
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-6 py-4">
           <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
@@ -230,33 +457,46 @@ function CalendarModal({ open, onClose, pipelines, onSelectItem }) {
         {/* Day Headers */}
         <div className="grid grid-cols-7 bg-white border-b border-slate-100">
           {DAY_NAMES.map((d) => (
-            <div key={d} className="py-2 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            <div key={d} className="py-2.5 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">
               {d}
             </div>
           ))}
         </div>
 
         {/* Calendar Grid */}
-        <div className="grid grid-cols-7 bg-white p-2 gap-1">
+        <div className="grid grid-cols-7 bg-white p-3 gap-1.5">
           {cells.map((day, idx) => {
-            if (day === null) return <div key={`blank-${idx}`} className="min-h-[80px]" />;
+            if (day === null) return <div key={`blank-${idx}`} className="min-h-[90px]" />;
             const dateKey = `${year}-${month}-${day}`;
             const items = pipelinesByDate[dateKey] || [];
             const isToday = isSameDay(new Date(year, month, day), today);
             return (
               <div
                 key={day}
-                className={`min-h-[80px] rounded-lg border p-1.5 transition-colors ${
-                  isToday ? "border-blue-300 bg-blue-50/50" : "border-slate-100 hover:border-slate-200 hover:bg-slate-50/50"
+                onClick={() => onDateClick(new Date(year, month, day))}
+                className={`min-h-[90px] rounded-lg border p-2 transition-colors cursor-pointer group ${
+                  isToday
+                    ? "border-blue-300 bg-blue-50/50"
+                    : "border-slate-100 hover:border-blue-200 hover:bg-blue-50/30"
                 }`}
               >
-                <span className={`text-xs font-medium ${isToday ? "text-blue-600" : "text-slate-500"}`}>{day}</span>
-                <div className="mt-1 flex flex-col gap-0.5">
+                <div className="flex items-center justify-between">
+                  <span className={`text-xs font-semibold ${isToday ? "text-blue-600" : "text-slate-500 group-hover:text-blue-500"}`}>
+                    {day}
+                  </span>
+                  <span className="opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Plus size={12} className="text-blue-400" />
+                  </span>
+                </div>
+                <div className="mt-1.5 flex flex-col gap-1">
                   {items.map((item) => (
                     <button
                       key={item.id}
-                      onClick={() => onSelectItem(item)}
-                      className="w-full truncate rounded px-1.5 py-0.5 text-left text-[10px] font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectItem(item);
+                      }}
+                      className="w-full truncate rounded-md px-2 py-1 text-left text-[11px] font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
                       title={item.content?.page_title || `Pipeline #${item.id}`}
                     >
                       {item.content?.page_number || `#${item.id}`}
@@ -435,11 +675,14 @@ export default function ContentPipeline() {
   const [error, setError] = useState("");
   const [pipelines, setPipelines] = useState([]);
   const [statistics, setStatistics] = useState(null);
+  const [filters, setFilters] = useState(null);
 
   // Modals
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [addFormOpen, setAddFormOpen] = useState(false);
+  const [addFormDate, setAddFormDate] = useState(null);
 
   /* ---- Fetch Data ---- */
   const fetchPipelines = async () => {
@@ -451,10 +694,11 @@ export default function ContentPipeline() {
       if (data.success) {
         setPipelines(data.data?.data || []);
         setStatistics(data.statistics || null);
+        setFilters(data.filters || null);
       } else {
         setError(data.message || "Failed to load pipeline data.");
       }
-    } catch (err) {
+    } catch {
       setError("Failed to fetch pipeline data. Please try again.");
     } finally {
       setLoading(false);
@@ -470,8 +714,22 @@ export default function ContentPipeline() {
     setDetailOpen(true);
   };
 
+  const handleDateClick = (date) => {
+    setAddFormDate(date);
+    setAddFormOpen(true);
+  };
+
+  const handleAddFormClose = (saved) => {
+    setAddFormOpen(false);
+    setAddFormDate(null);
+    if (saved) {
+      fetchPipelines(); // Refresh data after saving
+    }
+  };
+
   const stats = statistics || {};
   const byCampaign = stats.by_campaign || [];
+  const campaignsList = filters?.campaigns || [];
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-6">
@@ -552,6 +810,7 @@ export default function ContentPipeline() {
         onClose={() => setCalendarOpen(false)}
         pipelines={pipelines}
         onSelectItem={handleCalendarItemSelect}
+        onDateClick={handleDateClick}
       />
 
       {/* Detail Modal */}
@@ -559,6 +818,14 @@ export default function ContentPipeline() {
         open={detailOpen}
         onClose={() => { setDetailOpen(false); setSelectedItem(null); }}
         item={selectedItem}
+      />
+
+      {/* Add Pipeline Form Modal */}
+      <AddPipelineModal
+        open={addFormOpen}
+        onClose={handleAddFormClose}
+        selectedDate={addFormDate}
+        campaigns={campaignsList}
       />
     </div>
   );
