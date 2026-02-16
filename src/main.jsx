@@ -22,6 +22,7 @@ import LeadDashBoard from "./Pages/LeadsDashBoard.jsx"
 import SeoPageInsight from "./SEO/SeoPageInsight.jsx"
 import SeoPersonas from "./SEO/Personas.jsx"
 import FWSContact from "./Resources/FWSContact.jsx"
+import ServiceContact from "./Resources/ServiceContact.jsx"
 import CallRailTracket from "./CallRailTracker/CallRailTracket.jsx"
 import ChatTracker from "./ChatTracker/ChatTracker.jsx"
 import UTMBuilder from "./UTMBuilder/UTMBuilder.jsx"
@@ -104,6 +105,7 @@ const routes = [
 
   // FWS Resources
   { path: "resources/fws-contacts", element: <FWSContact /> },
+  { path: "resources/service-contacts", element: <ServiceContact /> },
   { path: "tollfree-form", element: <UniversalTollForm /> },
   { path: "resources/chat-tracker", element: <ChatTracker /> },
   { path: "resources/chat-conversation", element: <ChatConversation /> },

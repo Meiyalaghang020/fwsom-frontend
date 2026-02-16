@@ -122,6 +122,7 @@ const nav = [
         label: "Resources",
         children: [
           { icon: Users, label: "Fws Contacts", to: "/resources/fws-contacts" },
+          { icon: Users, label: "Service Contacts", to: "/resources/service-contacts" },
           { icon: Phone, label: "Universal Tollfree form", to: "/tollfree-form" },
           { icon: Bot, label: "Chat Tracker", to: "/resources/chat-tracker" },
           { icon: MessageSquare, label: "Chat Conversation", to: "/resources/chat-conversation" },
