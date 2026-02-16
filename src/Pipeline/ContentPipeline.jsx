@@ -458,8 +458,8 @@ function CalendarModal({ open, onClose, pipelines, onSelectItem, onDateClick }) 
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="w-full max-w-5xl rounded-2xl bg-white shadow-2xl overflow-hidden" style={{ minHeight: "620px" }}>
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-2 sm:p-4">
+    <div className="w-full max-w-5xl max-h-[95vh] rounded-2xl bg-white shadow-2xl overflow-hidden flex flex-col" style={{ minHeight: "min(680px, 90vh)" }}>
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-6 py-4">
           <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
@@ -494,6 +494,7 @@ function CalendarModal({ open, onClose, pipelines, onSelectItem, onDateClick }) 
         </div>
 
         {/* Calendar Grid */}
+        <div className="flex-1 overflow-y-auto">
         <div className="grid grid-cols-7 bg-white p-3 gap-1.5">
           {cells.map((day, idx) => {
             if (day === null) return <div key={`blank-${idx}`} className="min-h-[90px]" />;
@@ -518,7 +519,7 @@ function CalendarModal({ open, onClose, pipelines, onSelectItem, onDateClick }) 
                     <Plus size={12} className="text-blue-400" />
                   </span>
                 </div>
-                <div className="mt-1.5 flex flex-col gap-1">
+                <div className="mt-1.5 flex flex-col gap-1 max-h-[72px] overflow-y-auto scrollbar-thin">
                   {items.map((item) => (
                     <button
                       key={item.id}
@@ -526,7 +527,7 @@ function CalendarModal({ open, onClose, pipelines, onSelectItem, onDateClick }) 
                         e.stopPropagation();
                         onSelectItem(item);
                       }}
-                      className="w-full truncate rounded-md px-2 py-1 text-left text-[11px] font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
+                      className="w-full shrink-0 truncate rounded-md px-2 py-1 text-left text-[11px] font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
                       title={item.content?.page_title || `Pipeline #${item.id}`}
                     >
                       {item.content?.page_number || `#${item.id}`}
@@ -536,6 +537,7 @@ function CalendarModal({ open, onClose, pipelines, onSelectItem, onDateClick }) 
               </div>
             );
           })}
+        </div>
         </div>
       </div>
     </div>
