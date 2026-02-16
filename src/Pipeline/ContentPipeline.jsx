@@ -663,26 +663,32 @@ function DetailModal({ open, onClose, item }) {
           )}
 
           {/* Links */}
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-3">
             {content.linked_url && (
-              <a
-                href={content.linked_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 hover:underline"
-              >
-                <LinkIcon size={14} /> View Linked URL <ExternalLink size={12} />
-              </a>
+              <div>
+                <p className="text-xs font-medium text-slate-500 mb-1">Linked URL / Page URL</p>
+                <a
+                  href={content.linked_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-blue-600 hover:text-blue-700 hover:underline break-all"
+                >
+                  {content.linked_url}
+                </a>
+              </div>
             )}
             {pageContent.page_doc_url && (
-              <a
-                href={pageContent.page_doc_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 hover:underline"
-              >
-                <FileText size={14} /> View Document <ExternalLink size={12} />
-              </a>
+              <div>
+                <p className="text-xs font-medium text-slate-500 mb-1">Page Doc URL</p>
+                <a
+                  href={pageContent.page_doc_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-blue-600 hover:text-blue-700 hover:underline break-all"
+                >
+                  {pageContent.page_doc_url}
+                </a>
+              </div>
             )}
           </div>
 
