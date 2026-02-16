@@ -558,10 +558,6 @@ function DetailModal({ open, onClose, item }) {
 
   const content = item.content || {};
   const pageContent = content.page_content || {};
-  console.log("[v0] Pipeline detail item:", JSON.stringify(item, null, 2));
-  console.log("[v0] content.page_doc_url:", content.page_doc_url);
-  console.log("[v0] pageContent.page_doc_url:", pageContent.page_doc_url);
-  console.log("[v0] item.page_doc_url:", item.page_doc_url);
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
