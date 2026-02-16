@@ -111,9 +111,15 @@ function CampaignTable({ campaigns }) {
     );
   }
   return (
-    <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col max-h-[60vh]">
-      <div className="overflow-auto flex-1 scrollbar-thin">
-        <table className="w-full min-w-[480px] text-sm">
+    <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden max-h-[60vh]">
+      <div className="overflow-auto max-h-[60vh] scrollbar-thin">
+        <table className="w-full min-w-[480px] text-sm table-fixed">
+          <colgroup>
+            <col className="w-[55%]" />
+            <col className="w-[15%]" />
+            <col className="w-[15%]" />
+            <col className="w-[15%]" />
+          </colgroup>
           <thead className="sticky top-0 z-10">
             <tr className="bg-slate-50 border-b border-slate-200">
               <th className="px-4 py-3 text-left font-semibold text-slate-600 whitespace-nowrap sm:px-5">Campaign</th>
@@ -151,13 +157,8 @@ function CampaignTable({ campaigns }) {
               </tr>
             ))}
           </tbody>
-        </table>
-      </div>
-      {/* Sticky total footer outside scrollable area */}
-      <div className="overflow-x-auto border-t border-slate-200 bg-slate-50 shrink-0">
-        <table className="w-full min-w-[480px] text-sm">
-          <tfoot>
-            <tr className="font-semibold">
+          <tfoot className="sticky bottom-0 z-10">
+            <tr className="font-semibold bg-slate-50 border-t border-slate-200">
               <td className="px-4 py-3 text-slate-700 sm:px-5">Total</td>
               <td className="px-4 py-3 text-center text-slate-700 sm:px-5">
                 {campaigns.reduce((a, c) => a + c.total, 0)}
