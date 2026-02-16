@@ -188,17 +188,26 @@ const INITIAL_FORM = {
 function AddPipelineModal({ open, onClose, selectedDate, campaigns, contentTypes, stages, statuses }) {
   const [form, setForm] = useState(INITIAL_FORM);
   const [saving, setSaving] = useState(false);
-
-  // Generate a readonly page number
-  const pageNumber = form.campaign_id
-    ? (() => {
-        const camp = (campaigns || []).find((c) => String(c.id) === String(form.campaign_id));
-        return camp ? `${camp.short_code}-${String(Date.now()).slice(-4)}` : "";
-      })()
-    : "";
+  const [fetchingPageNumber, setFetchingPageNumber] = useState(false);
 
   const handleChange = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  // Fetch page number from API when campaign changes
+  const handleCampaignChange = async (campaignId) => {
+    setForm((prev) => ({ ...prev, campaign_id: campaignId, page_number: "" }));
+    if (!campaignId) return;
+    setFetchingPageNumber(true);
+    try {
+      const res = await api.get(`/v1/content-pipeline/generate-page-number/${campaignId}`);
+      const pageNum = res?.data?.data?.page_number || res?.data?.page_number || "";
+      setForm((prev) => ({ ...prev, page_number: pageNum }));
+    } catch {
+      setForm((prev) => ({ ...prev, page_number: "" }));
+    } finally {
+      setFetchingPageNumber(false);
+    }
   };
 
   const handleSave = async () => {
@@ -217,6 +226,7 @@ function AddPipelineModal({ open, onClose, selectedDate, campaigns, contentTypes
         campaign_id: form.campaign_id ? Number(form.campaign_id) : null,
         primary_keyword: form.primary_keyword || null,
         page_title: form.page_title || null,
+        page_number: form.page_number || null,
         content_type_id: form.content_type ? Number(form.content_type) : null,
         linked_url: form.linked_url || null,
         comments: form.comments || null,
@@ -282,7 +292,7 @@ function AddPipelineModal({ open, onClose, selectedDate, campaigns, contentTypes
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Campaign</label>
               <select
                 value={form.campaign_id}
-                onChange={(e) => handleChange("campaign_id", e.target.value)}
+                onChange={(e) => handleCampaignChange(e.target.value)}
                 className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
               >
                 <option value="">Select Campaign</option>
@@ -338,13 +348,20 @@ function AddPipelineModal({ open, onClose, selectedDate, campaigns, contentTypes
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Page Number</label>
-              <input
-                type="text"
-                value={pageNumber}
-                readOnly
-                className="w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-500 shadow-sm cursor-not-allowed"
-                placeholder="Auto-generated"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  value={form.page_number}
+                  readOnly
+                  className="w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-500 shadow-sm cursor-not-allowed"
+                  placeholder={fetchingPageNumber ? "Generating..." : "Auto-generated"}
+                />
+                {fetchingPageNumber && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <Loader2 size={16} className="animate-spin text-blue-500" />
+                  </div>
+                )}
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">Linked URL / Page URL</label>
