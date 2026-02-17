@@ -490,7 +490,7 @@ function CalendarModal({ open, onClose, pipelines, onSelectItem, onDateClick }) 
   const daysInMonth = getDaysInMonth(year, month);
   const firstDay = getFirstDayOfMonth(year, month);
 
-  // Group pipelines by planned_date 
+  // Group pipelines by Planned date
   const pipelinesByDate = {};
   (pipelines || []).forEach((p) => {
     const d = new Date(p.planned_date);
@@ -564,10 +564,10 @@ function CalendarModal({ open, onClose, pipelines, onSelectItem, onDateClick }) 
                   key={day}
                   onClick={() => canAdd && onDateClick(cellDate)}
                   className={`min-h-[90px] rounded-lg border p-2 transition-colors group ${isToday
-                      ? "border-blue-300 bg-blue-50/50 cursor-pointer"
-                      : canAdd
-                        ? "border-slate-100 hover:border-blue-200 hover:bg-blue-50/30 cursor-pointer"
-                        : "border-slate-100 bg-slate-50/40 cursor-default"
+                    ? "border-blue-300 bg-blue-50/50 cursor-pointer"
+                    : canAdd
+                      ? "border-slate-100 hover:border-blue-200 hover:bg-blue-50/30 cursor-pointer"
+                      : "border-slate-100 bg-slate-50/40 cursor-default"
                     }`}
                 >
                   <div className="flex items-center justify-between">
@@ -778,29 +778,29 @@ function DetailModal({ open, onClose, itemId, allContentTypes, allWriters }) {
                   <p className="text-sm text-slate-700">{formatDate(data.published_date)}</p>
                 </div>
               </div>
+              <div className="grid grid-cols-2 gap-3">
+                {/* Writer */}
+                {pageContent.writer && (
+                  <div>
+                    <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
+                      <User size={13} /> Writer
+                    </label>
+                    <p className="text-sm text-slate-700">{pageContent.writer.name}</p>
+                    <p className="text-xs text-slate-400">{pageContent.writer.email}</p>
+                  </div>
+                )}
 
-              {/* Writer */}
-              {pageContent.writer && (
-                <div>
-                  <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                    <User size={13} /> Writer
-                  </label>
-                  <p className="text-sm text-slate-700">{pageContent.writer.name}</p>
-                  <p className="text-xs text-slate-400">{pageContent.writer.email}</p>
-                </div>
-              )}
-
-              {/* Assigned User */}
-              {data.user && (
-                <div>
-                  <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                    <User size={13} /> Assigned To
-                  </label>
-                  <p className="text-sm text-slate-700">{data.user.name}</p>
-                  <p className="text-xs text-slate-400">{data.user.email}</p>
-                </div>
-              )}
-
+                {/* Assigned User */}
+                {data.user && (
+                  <div>
+                    <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
+                      <User size={13} /> Assigned To
+                    </label>
+                    <p className="text-sm text-slate-700">{data.user.name}</p>
+                    <p className="text-xs text-slate-400">{data.user.email}</p>
+                  </div>
+                )}
+              </div>
               {/* Comments (editable) */}
               <div>
                 <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
@@ -880,7 +880,7 @@ function DetailModal({ open, onClose, itemId, allContentTypes, allWriters }) {
           </>
         )}
       </div>
-    </div>
+    </div >
   );
 }
 
@@ -1202,8 +1202,8 @@ function RewriteModal({ open, onClose, allContentTypes, allWriters }) {
                     <div
                       onClick={() => selectedCampaignId && setUrlDropdownOpen(true)}
                       className={`w-full flex items-center gap-2 rounded-lg border bg-white px-3 py-2.5 text-sm shadow-sm transition-colors ${!selectedCampaignId
-                          ? "border-slate-200 bg-slate-100 cursor-not-allowed"
-                          : "border-slate-300 cursor-pointer hover:border-blue-400"
+                        ? "border-slate-200 bg-slate-100 cursor-not-allowed"
+                        : "border-slate-300 cursor-pointer hover:border-blue-400"
                         }`}
                     >
                       <Search size={14} className="text-slate-400 shrink-0" />
