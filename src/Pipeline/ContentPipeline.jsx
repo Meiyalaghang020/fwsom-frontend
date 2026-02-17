@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import api from "../lib/api";
 import {
   Plus,
@@ -19,6 +19,7 @@ import {
   BookOpen,
   Wrench,
   Save,
+  Search,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -782,6 +783,12 @@ function RewriteModal({ open, onClose, allContentTypes, allWriters }) {
   const [saving, setSaving] = useState(false);
   const [fetchingPageNumber, setFetchingPageNumber] = useState(false);
   const [contentData, setContentData] = useState(null);
+  const [campaignSearch, setCampaignSearch] = useState("");
+  const [campaignDropdownOpen, setCampaignDropdownOpen] = useState(false);
+  const [urlSearch, setUrlSearch] = useState("");
+  const [urlDropdownOpen, setUrlDropdownOpen] = useState(false);
+  const campaignRef = useRef(null);
+  const urlRef = useRef(null);
 
   // User info for writer logic
   const loggedInUser = JSON.parse(localStorage.getItem("user") || "{}");
@@ -792,6 +799,20 @@ function RewriteModal({ open, onClose, allContentTypes, allWriters }) {
   const isWriter = userRoleId === 3 && userDeptId === 1;
   const showWriterDropdown = [1, 2, 4].includes(userRoleId);
 
+  // Close dropdowns on click outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (campaignRef.current && !campaignRef.current.contains(e.target)) {
+        setCampaignDropdownOpen(false);
+      }
+      if (urlRef.current && !urlRef.current.contains(e.target)) {
+        setUrlDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   // Fetch campaigns on open
   useEffect(() => {
     if (!open) return;
@@ -801,6 +822,10 @@ function RewriteModal({ open, onClose, allContentTypes, allWriters }) {
     setLinkedUrls([]);
     setForm(INITIAL_FORM);
     setContentData(null);
+    setCampaignSearch("");
+    setCampaignDropdownOpen(false);
+    setUrlSearch("");
+    setUrlDropdownOpen(false);
     const fetchCampaigns = async () => {
       setLoadingCampaigns(true);
       try {
@@ -820,6 +845,9 @@ function RewriteModal({ open, onClose, allContentTypes, allWriters }) {
     setSelectedCampaignId(campId);
     setSelectedUrl("");
     setLinkedUrls([]);
+    setUrlSearch("");
+    setUrlDropdownOpen(false);
+    setCampaignDropdownOpen(false);
     if (!campId) return;
     setLoadingUrls(true);
     try {
@@ -961,53 +989,194 @@ function RewriteModal({ open, onClose, allContentTypes, allWriters }) {
           <>
             {/* Step 1: Campaign & URL Selection */}
             <div className="px-6 py-5 space-y-5">
-              {/* Campaign Dropdown */}
-              <div>
+              {/* Searchable Campaign Dropdown */}
+              <div ref={campaignRef}>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Campaign</label>
                 {loadingCampaigns ? (
                   <div className="flex items-center gap-2 py-2.5 text-sm text-slate-500">
                     <Loader2 size={16} className="animate-spin" /> Loading campaigns...
                   </div>
                 ) : (
-                  <select
-                    value={selectedCampaignId}
-                    onChange={(e) => handleCampaignSelect(e.target.value)}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  >
-                    <option value="">Select Campaign</option>
-                    {campaigns.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} ({c.short_code})
-                      </option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <div
+                      onClick={() => setCampaignDropdownOpen(true)}
+                      className="w-full flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm shadow-sm cursor-pointer hover:border-blue-400 transition-colors"
+                    >
+                      <Search size={14} className="text-slate-400 shrink-0" />
+                      {campaignDropdownOpen ? (
+                        <input
+                          autoFocus
+                          type="text"
+                          value={campaignSearch}
+                          onChange={(e) => setCampaignSearch(e.target.value)}
+                          placeholder="Search campaigns..."
+                          className="flex-1 outline-none bg-transparent text-slate-700 placeholder:text-slate-400"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      ) : (
+                        <span className={`flex-1 truncate ${selectedCampaignId ? "text-slate-700" : "text-slate-400"}`}>
+                          {selectedCampaignId
+                            ? (() => {
+                                const c = campaigns.find((c) => String(c.id) === String(selectedCampaignId));
+                                return c ? `${c.name} (${c.short_code})` : "Select Campaign";
+                              })()
+                            : "Select Campaign"}
+                        </span>
+                      )}
+                      {selectedCampaignId && !campaignDropdownOpen && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCampaignSelect("");
+                            setCampaignSearch("");
+                          }}
+                          className="text-slate-400 hover:text-slate-600"
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+                    {campaignDropdownOpen && (
+                      <div className="absolute z-20 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg max-h-48 overflow-y-auto scrollbar-thin">
+                        {campaigns
+                          .filter((c) => {
+                            if (!campaignSearch) return true;
+                            const q = campaignSearch.toLowerCase();
+                            return c.name.toLowerCase().includes(q) || c.short_code.toLowerCase().includes(q);
+                          })
+                          .map((c) => (
+                            <button
+                              key={c.id}
+                              onClick={() => {
+                                handleCampaignSelect(String(c.id));
+                                setCampaignSearch("");
+                              }}
+                              className={`w-full px-3 py-2.5 text-left text-sm hover:bg-blue-50 transition-colors flex items-center gap-2 ${
+                                String(c.id) === String(selectedCampaignId) ? "bg-blue-50 text-blue-700 font-medium" : "text-slate-700"
+                              }`}
+                            >
+                              <span className="inline-flex h-6 shrink-0 items-center justify-center rounded bg-blue-100 px-1.5 text-[10px] font-bold text-blue-600">
+                                {c.short_code}
+                              </span>
+                              <span className="truncate">{c.name}</span>
+                            </button>
+                          ))}
+                        {campaigns.filter((c) => {
+                          if (!campaignSearch) return true;
+                          const q = campaignSearch.toLowerCase();
+                          return c.name.toLowerCase().includes(q) || c.short_code.toLowerCase().includes(q);
+                        }).length === 0 && (
+                          <p className="px-3 py-3 text-sm text-slate-400 text-center">No campaigns found</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
 
-              {/* Linked URL Dropdown */}
-              <div>
+              {/* Searchable Linked URL Dropdown */}
+              <div ref={urlRef}>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Linked URL</label>
                 {loadingUrls ? (
                   <div className="flex items-center gap-2 py-2.5 text-sm text-slate-500">
                     <Loader2 size={16} className="animate-spin" /> Loading URLs...
                   </div>
                 ) : (
-                  <select
-                    value={selectedUrl}
-                    onChange={(e) => setSelectedUrl(e.target.value)}
-                    disabled={!selectedCampaignId}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:bg-slate-100 disabled:cursor-not-allowed"
-                  >
-                    <option value="">Select Linked URL</option>
-                    {linkedUrls.map((u) => (
-                      <option key={u.id} value={u.linked_url}>
-                        {u.page_title || u.linked_url}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <div
+                      onClick={() => selectedCampaignId && setUrlDropdownOpen(true)}
+                      className={`w-full flex items-center gap-2 rounded-lg border bg-white px-3 py-2.5 text-sm shadow-sm transition-colors ${
+                        !selectedCampaignId
+                          ? "border-slate-200 bg-slate-100 cursor-not-allowed"
+                          : "border-slate-300 cursor-pointer hover:border-blue-400"
+                      }`}
+                    >
+                      <Search size={14} className="text-slate-400 shrink-0" />
+                      {urlDropdownOpen ? (
+                        <input
+                          autoFocus
+                          type="text"
+                          value={urlSearch}
+                          onChange={(e) => setUrlSearch(e.target.value)}
+                          placeholder="Search by title or URL..."
+                          className="flex-1 outline-none bg-transparent text-slate-700 placeholder:text-slate-400"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      ) : (
+                        <span className={`flex-1 truncate ${selectedUrl ? "text-slate-700" : "text-slate-400"}`}>
+                          {selectedUrl
+                            ? (() => {
+                                const u = linkedUrls.find((u) => u.linked_url === selectedUrl);
+                                return u?.page_title || selectedUrl;
+                              })()
+                            : "Select Linked URL"}
+                        </span>
+                      )}
+                      {selectedUrl && !urlDropdownOpen && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedUrl("");
+                            setUrlSearch("");
+                          }}
+                          className="text-slate-400 hover:text-slate-600"
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+                    {urlDropdownOpen && (
+                      <div className="absolute z-20 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg max-h-56 overflow-y-auto scrollbar-thin">
+                        {linkedUrls
+                          .filter((u) => {
+                            if (!urlSearch) return true;
+                            const q = urlSearch.toLowerCase();
+                            return (
+                              (u.page_title && u.page_title.toLowerCase().includes(q)) ||
+                              (u.linked_url && u.linked_url.toLowerCase().includes(q)) ||
+                              (u.page_number && u.page_number.toLowerCase().includes(q))
+                            );
+                          })
+                          .map((u) => (
+                            <button
+                              key={u.id}
+                              onClick={() => {
+                                setSelectedUrl(u.linked_url);
+                                setUrlSearch("");
+                                setUrlDropdownOpen(false);
+                              }}
+                              className={`w-full px-3 py-2.5 text-left hover:bg-blue-50 transition-colors ${
+                                u.linked_url === selectedUrl ? "bg-blue-50" : ""
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                {u.page_number && (
+                                  <span className="inline-flex h-5 shrink-0 items-center justify-center rounded bg-slate-100 px-1.5 text-[10px] font-bold text-slate-600">
+                                    {u.page_number}
+                                  </span>
+                                )}
+                                <span className="text-sm font-medium text-slate-700 truncate">{u.page_title || "Untitled"}</span>
+                              </div>
+                              <p className="text-xs text-slate-400 truncate mt-0.5 ml-0">{u.linked_url}</p>
+                            </button>
+                          ))}
+                        {linkedUrls.filter((u) => {
+                          if (!urlSearch) return true;
+                          const q = urlSearch.toLowerCase();
+                          return (
+                            (u.page_title && u.page_title.toLowerCase().includes(q)) ||
+                            (u.linked_url && u.linked_url.toLowerCase().includes(q)) ||
+                            (u.page_number && u.page_number.toLowerCase().includes(q))
+                          );
+                        }).length === 0 && (
+                          <p className="px-3 py-3 text-sm text-slate-400 text-center">No URLs found</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 )}
                 {selectedUrl && (
-                  <p className="mt-1.5 text-xs text-slate-400 break-all">{selectedUrl}</p>
+                  <p className="mt-1.5 text-xs text-blue-500 break-all">{selectedUrl}</p>
                 )}
               </div>
             </div>
