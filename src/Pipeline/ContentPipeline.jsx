@@ -27,10 +27,10 @@ import {
 /* ------------------------------------------------------------------ */
 
 const MONTH_NAMES = [
-  "January","February","March","April","May","June",
-  "July","August","September","October","November","December",
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
 ];
-const DAY_NAMES = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
+const DAY_NAMES = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
 function getDaysInMonth(year, month) {
   return new Date(year, month + 1, 0).getDate();
@@ -490,10 +490,10 @@ function CalendarModal({ open, onClose, pipelines, onSelectItem, onDateClick }) 
   const daysInMonth = getDaysInMonth(year, month);
   const firstDay = getFirstDayOfMonth(year, month);
 
-  // Group pipelines by created_at date
+  // Group pipelines by planned_date 
   const pipelinesByDate = {};
   (pipelines || []).forEach((p) => {
-    const d = new Date(p.created_at);
+    const d = new Date(p.planned_date);
     const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
     if (!pipelinesByDate[key]) pipelinesByDate[key] = [];
     pipelinesByDate[key].push(p);
@@ -513,8 +513,8 @@ function CalendarModal({ open, onClose, pipelines, onSelectItem, onDateClick }) 
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
 
   return (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-2 sm:p-4">
-    <div className="w-full max-w-5xl max-h-[95vh] rounded-2xl bg-white shadow-2xl overflow-hidden flex flex-col" style={{ minHeight: "min(680px, 90vh)" }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-2 sm:p-4">
+      <div className="w-full max-w-5xl max-h-[95vh] rounded-2xl bg-white shadow-2xl overflow-hidden flex flex-col" style={{ minHeight: "min(680px, 90vh)" }}>
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-6 py-4">
           <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
@@ -550,56 +550,55 @@ function CalendarModal({ open, onClose, pipelines, onSelectItem, onDateClick }) 
 
         {/* Calendar Grid */}
         <div className="flex-1 overflow-y-auto">
-        <div className="grid grid-cols-7 bg-white p-3 gap-1.5">
-          {cells.map((day, idx) => {
-            if (day === null) return <div key={`blank-${idx}`} className="min-h-[90px]" />;
-            const dateKey = `${year}-${month}-${day}`;
-            const items = pipelinesByDate[dateKey] || [];
-            const cellDate = new Date(year, month, day);
-            const isToday = isSameDay(cellDate, today);
-            const isPast = cellDate < new Date(today.getFullYear(), today.getMonth(), today.getDate());
-            const canAdd = !isPast;
-            return (
-              <div
-                key={day}
-                onClick={() => canAdd && onDateClick(cellDate)}
-                className={`min-h-[90px] rounded-lg border p-2 transition-colors group ${
-                  isToday
-                    ? "border-blue-300 bg-blue-50/50 cursor-pointer"
-                    : canAdd
-                      ? "border-slate-100 hover:border-blue-200 hover:bg-blue-50/30 cursor-pointer"
-                      : "border-slate-100 bg-slate-50/40 cursor-default"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className={`text-xs font-semibold ${isToday ? "text-blue-600" : isPast ? "text-slate-400" : "text-slate-500 group-hover:text-blue-500"}`}>
-                    {day}
-                  </span>
-                  {canAdd && (
-                    <span className="opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Plus size={12} className="text-blue-400" />
+          <div className="grid grid-cols-7 bg-white p-3 gap-1.5">
+            {cells.map((day, idx) => {
+              if (day === null) return <div key={`blank-${idx}`} className="min-h-[90px]" />;
+              const dateKey = `${year}-${month}-${day}`;
+              const items = pipelinesByDate[dateKey] || [];
+              const cellDate = new Date(year, month, day);
+              const isToday = isSameDay(cellDate, today);
+              const isPast = cellDate < new Date(today.getFullYear(), today.getMonth(), today.getDate());
+              const canAdd = !isPast;
+              return (
+                <div
+                  key={day}
+                  onClick={() => canAdd && onDateClick(cellDate)}
+                  className={`min-h-[90px] rounded-lg border p-2 transition-colors group ${isToday
+                      ? "border-blue-300 bg-blue-50/50 cursor-pointer"
+                      : canAdd
+                        ? "border-slate-100 hover:border-blue-200 hover:bg-blue-50/30 cursor-pointer"
+                        : "border-slate-100 bg-slate-50/40 cursor-default"
+                    }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className={`text-xs font-semibold ${isToday ? "text-blue-600" : isPast ? "text-slate-400" : "text-slate-500 group-hover:text-blue-500"}`}>
+                      {day}
                     </span>
-                  )}
+                    {canAdd && (
+                      <span className="opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Plus size={12} className="text-blue-400" />
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-1.5 flex flex-col gap-1 max-h-[72px] overflow-y-auto scrollbar-thin">
+                    {items.map((item) => (
+                      <button
+                        key={item.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelectItem(item);
+                        }}
+                        className="w-full shrink-0 truncate rounded-md px-2 py-1 text-left text-[11px] font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
+                        title={item.content?.page_title || `Pipeline #${item.id}`}
+                      >
+                        {item.content?.page_number || `#${item.id}`}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div className="mt-1.5 flex flex-col gap-1 max-h-[72px] overflow-y-auto scrollbar-thin">
-                  {items.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSelectItem(item);
-                      }}
-                      className="w-full shrink-0 truncate rounded-md px-2 py-1 text-left text-[11px] font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
-                      title={item.content?.page_title || `Pipeline #${item.id}`}
-                    >
-                      {item.content?.page_number || `#${item.id}`}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
@@ -1135,9 +1134,9 @@ function RewriteModal({ open, onClose, allContentTypes, allWriters }) {
                         <span className={`flex-1 truncate ${selectedCampaignId ? "text-slate-700" : "text-slate-400"}`}>
                           {selectedCampaignId
                             ? (() => {
-                                const c = campaigns.find((c) => String(c.id) === String(selectedCampaignId));
-                                return c ? `${c.name} (${c.short_code})` : "Select Campaign";
-                              })()
+                              const c = campaigns.find((c) => String(c.id) === String(selectedCampaignId));
+                              return c ? `${c.name} (${c.short_code})` : "Select Campaign";
+                            })()
                             : "Select Campaign"}
                         </span>
                       )}
@@ -1169,9 +1168,8 @@ function RewriteModal({ open, onClose, allContentTypes, allWriters }) {
                                 handleCampaignSelect(String(c.id));
                                 setCampaignSearch("");
                               }}
-                              className={`w-full px-3 py-2.5 text-left text-sm hover:bg-blue-50 transition-colors flex items-center gap-2 ${
-                                String(c.id) === String(selectedCampaignId) ? "bg-blue-50 text-blue-700 font-medium" : "text-slate-700"
-                              }`}
+                              className={`w-full px-3 py-2.5 text-left text-sm hover:bg-blue-50 transition-colors flex items-center gap-2 ${String(c.id) === String(selectedCampaignId) ? "bg-blue-50 text-blue-700 font-medium" : "text-slate-700"
+                                }`}
                             >
                               <span className="inline-flex h-6 shrink-0 items-center justify-center rounded bg-blue-100 px-1.5 text-[10px] font-bold text-blue-600">
                                 {c.short_code}
@@ -1184,8 +1182,8 @@ function RewriteModal({ open, onClose, allContentTypes, allWriters }) {
                           const q = campaignSearch.toLowerCase();
                           return c.name.toLowerCase().includes(q) || c.short_code.toLowerCase().includes(q);
                         }).length === 0 && (
-                          <p className="px-3 py-3 text-sm text-slate-400 text-center">No campaigns found</p>
-                        )}
+                            <p className="px-3 py-3 text-sm text-slate-400 text-center">No campaigns found</p>
+                          )}
                       </div>
                     )}
                   </div>
@@ -1203,11 +1201,10 @@ function RewriteModal({ open, onClose, allContentTypes, allWriters }) {
                   <div className="relative">
                     <div
                       onClick={() => selectedCampaignId && setUrlDropdownOpen(true)}
-                      className={`w-full flex items-center gap-2 rounded-lg border bg-white px-3 py-2.5 text-sm shadow-sm transition-colors ${
-                        !selectedCampaignId
+                      className={`w-full flex items-center gap-2 rounded-lg border bg-white px-3 py-2.5 text-sm shadow-sm transition-colors ${!selectedCampaignId
                           ? "border-slate-200 bg-slate-100 cursor-not-allowed"
                           : "border-slate-300 cursor-pointer hover:border-blue-400"
-                      }`}
+                        }`}
                     >
                       <Search size={14} className="text-slate-400 shrink-0" />
                       {urlDropdownOpen ? (
@@ -1224,9 +1221,9 @@ function RewriteModal({ open, onClose, allContentTypes, allWriters }) {
                         <span className={`flex-1 truncate ${selectedUrl ? "text-slate-700" : "text-slate-400"}`}>
                           {selectedUrl
                             ? (() => {
-                                const u = linkedUrls.find((u) => u.linked_url === selectedUrl);
-                                return u?.page_title || selectedUrl;
-                              })()
+                              const u = linkedUrls.find((u) => u.linked_url === selectedUrl);
+                              return u?.page_title || selectedUrl;
+                            })()
                             : "Select Linked URL"}
                         </span>
                       )}
@@ -1263,9 +1260,8 @@ function RewriteModal({ open, onClose, allContentTypes, allWriters }) {
                                 setUrlSearch("");
                                 setUrlDropdownOpen(false);
                               }}
-                              className={`w-full px-3 py-2.5 text-left hover:bg-blue-50 transition-colors ${
-                                u.linked_url === selectedUrl ? "bg-blue-50" : ""
-                              }`}
+                              className={`w-full px-3 py-2.5 text-left hover:bg-blue-50 transition-colors ${u.linked_url === selectedUrl ? "bg-blue-50" : ""
+                                }`}
                             >
                               <div className="flex items-center gap-2">
                                 {u.page_number && (
@@ -1287,8 +1283,8 @@ function RewriteModal({ open, onClose, allContentTypes, allWriters }) {
                             (u.page_number && u.page_number.toLowerCase().includes(q))
                           );
                         }).length === 0 && (
-                          <p className="px-3 py-3 text-sm text-slate-400 text-center">No URLs found</p>
-                        )}
+                            <p className="px-3 py-3 text-sm text-slate-400 text-center">No URLs found</p>
+                          )}
                       </div>
                     )}
                   </div>
