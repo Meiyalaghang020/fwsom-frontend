@@ -767,6 +767,438 @@ function DetailModal({ open, onClose, item }) {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Rewrite Modal                                                      */
+/* ------------------------------------------------------------------ */
+function RewriteModal({ open, onClose, allContentTypes, allWriters }) {
+  const [step, setStep] = useState(1); // 1 = select campaign+url, 2 = edit form
+  const [campaigns, setCampaigns] = useState([]);
+  const [linkedUrls, setLinkedUrls] = useState([]);
+  const [selectedCampaignId, setSelectedCampaignId] = useState("");
+  const [selectedUrl, setSelectedUrl] = useState("");
+  const [loadingCampaigns, setLoadingCampaigns] = useState(false);
+  const [loadingUrls, setLoadingUrls] = useState(false);
+  const [loadingData, setLoadingData] = useState(false);
+  const [form, setForm] = useState(INITIAL_FORM);
+  const [saving, setSaving] = useState(false);
+  const [fetchingPageNumber, setFetchingPageNumber] = useState(false);
+  const [contentData, setContentData] = useState(null);
+
+  // User info for writer logic
+  const loggedInUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const userRoleId = loggedInUser.role_id ? Number(loggedInUser.role_id) : null;
+  const userDeptId = loggedInUser.dept_id ? Number(loggedInUser.dept_id) : null;
+  const userTeamId = loggedInUser.team_id ? Number(loggedInUser.team_id) : null;
+  const userId = loggedInUser.id ? Number(loggedInUser.id) : null;
+  const isWriter = userRoleId === 3 && userDeptId === 1;
+  const showWriterDropdown = [1, 2, 4].includes(userRoleId);
+
+  // Fetch campaigns on open
+  useEffect(() => {
+    if (!open) return;
+    setStep(1);
+    setSelectedCampaignId("");
+    setSelectedUrl("");
+    setLinkedUrls([]);
+    setForm(INITIAL_FORM);
+    setContentData(null);
+    const fetchCampaigns = async () => {
+      setLoadingCampaigns(true);
+      try {
+        const res = await api.get("/v1/content-pipeline/campaigns");
+        setCampaigns(res.data?.data || []);
+      } catch {
+        setCampaigns([]);
+      } finally {
+        setLoadingCampaigns(false);
+      }
+    };
+    fetchCampaigns();
+  }, [open]);
+
+  // Fetch linked URLs when campaign changes
+  const handleCampaignSelect = async (campId) => {
+    setSelectedCampaignId(campId);
+    setSelectedUrl("");
+    setLinkedUrls([]);
+    if (!campId) return;
+    setLoadingUrls(true);
+    try {
+      const res = await api.get(`/v1/content-pipeline/linked-urls/${campId}`);
+      setLinkedUrls(res.data?.data || []);
+    } catch {
+      setLinkedUrls([]);
+    } finally {
+      setLoadingUrls(false);
+    }
+  };
+
+  // Submit step 1 - fetch content by URL
+  const handleFetchContent = async () => {
+    if (!selectedCampaignId || !selectedUrl) return;
+    setLoadingData(true);
+    try {
+      const res = await api.get(`/v1/content-pipeline/by-url?campaign_id=${selectedCampaignId}&linked_url=${encodeURIComponent(selectedUrl)}`);
+      const data = res.data?.data || {};
+      const content = data.content || {};
+      const pageContent = content.page_content || {};
+      setContentData(data);
+      setForm({
+        campaign_id: String(content.campaign_id || selectedCampaignId),
+        content_type: String(content.content_type_id || ""),
+        primary_keyword: content.primary_keyword || "",
+        page_title: content.page_title || "",
+        page_number: content.page_number || "",
+        linked_url: content.linked_url || selectedUrl,
+        comments: content.comments || "",
+        page_doc_url: pageContent.page_doc_url || "",
+        writer_id: String(pageContent.writer_id || ""),
+      });
+      setStep(2);
+    } catch {
+      alert("Failed to fetch content data. Please try again.");
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  const handleChange = (field, value) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  // Re-fetch page number when campaign changes in edit form
+  const handleEditCampaignChange = async (campaignId) => {
+    setForm((prev) => ({ ...prev, campaign_id: campaignId, page_number: "" }));
+    if (!campaignId) return;
+    setFetchingPageNumber(true);
+    try {
+      const res = await api.get(`/v1/content-pipeline/generate-page-number/${campaignId}`);
+      const pageNum = res?.data?.data?.page_number || res?.data?.page_number || "";
+      setForm((prev) => ({ ...prev, page_number: pageNum }));
+    } catch {
+      setForm((prev) => ({ ...prev, page_number: "" }));
+    } finally {
+      setFetchingPageNumber(false);
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      let payloadWriterId = null;
+      let payloadUserId = userId;
+      let payloadTeamId = null;
+      if (isWriter) {
+        payloadWriterId = userId;
+        payloadTeamId = userTeamId;
+      } else if (showWriterDropdown && form.writer_id) {
+        payloadWriterId = Number(form.writer_id);
+        const selectedWriter = (allWriters || []).find((w) => String(w.id) === String(form.writer_id));
+        payloadTeamId = selectedWriter ? selectedWriter.team_id : null;
+      }
+
+      const payload = {
+        campaign_id: form.campaign_id ? Number(form.campaign_id) : null,
+        primary_keyword: form.primary_keyword || null,
+        page_title: form.page_title || null,
+        page_number: form.page_number || null,
+        content_type_id: form.content_type ? Number(form.content_type) : null,
+        linked_url: form.linked_url || null,
+        comments: form.comments || null,
+        content_status: null,
+        write_status: null,
+        page_content_status: null,
+        writer_id: payloadWriterId,
+        page_doc_url: form.page_doc_url || null,
+        design_url: null,
+        stage: "Content",
+        pipeline_status: "Pipeline",
+        user_id: payloadUserId,
+        team_id: payloadTeamId,
+        planned_date: null,
+        expected_date: null,
+        revised_date: null,
+        published_date: null,
+      };
+      await api.post("/v1/content-pipeline", payload);
+      setForm(INITIAL_FORM);
+      onClose(true);
+    } catch {
+      alert("Failed to save pipeline content. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleClose = () => {
+    setForm(INITIAL_FORM);
+    setStep(1);
+    onClose(false);
+  };
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-6 py-4">
+          <div>
+            <h3 className="text-lg font-bold text-slate-800">
+              {step === 1 ? "Rewrite - Select Content" : "Rewrite Pipeline Content"}
+            </h3>
+            {step === 2 && contentData?.content?.campaign?.name && (
+              <p className="text-sm text-slate-500 mt-0.5">
+                {contentData.content.campaign.name} - {form.page_number}
+              </p>
+            )}
+          </div>
+          <button onClick={handleClose} className="rounded-lg p-1.5 hover:bg-slate-200 transition-colors text-slate-500">
+            <X size={20} />
+          </button>
+        </div>
+
+        {step === 1 ? (
+          <>
+            {/* Step 1: Campaign & URL Selection */}
+            <div className="px-6 py-5 space-y-5">
+              {/* Campaign Dropdown */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Campaign</label>
+                {loadingCampaigns ? (
+                  <div className="flex items-center gap-2 py-2.5 text-sm text-slate-500">
+                    <Loader2 size={16} className="animate-spin" /> Loading campaigns...
+                  </div>
+                ) : (
+                  <select
+                    value={selectedCampaignId}
+                    onChange={(e) => handleCampaignSelect(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  >
+                    <option value="">Select Campaign</option>
+                    {campaigns.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} ({c.short_code})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {/* Linked URL Dropdown */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Linked URL</label>
+                {loadingUrls ? (
+                  <div className="flex items-center gap-2 py-2.5 text-sm text-slate-500">
+                    <Loader2 size={16} className="animate-spin" /> Loading URLs...
+                  </div>
+                ) : (
+                  <select
+                    value={selectedUrl}
+                    onChange={(e) => setSelectedUrl(e.target.value)}
+                    disabled={!selectedCampaignId}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                  >
+                    <option value="">Select Linked URL</option>
+                    {linkedUrls.map((u) => (
+                      <option key={u.id} value={u.linked_url}>
+                        {u.page_title || u.linked_url}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {selectedUrl && (
+                  <p className="mt-1.5 text-xs text-slate-400 break-all">{selectedUrl}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Step 1 Footer */}
+            <div className="flex items-center justify-end gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4">
+              <button
+                onClick={handleClose}
+                className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
+              >
+                Close
+              </button>
+              <button
+                onClick={handleFetchContent}
+                disabled={!selectedCampaignId || !selectedUrl || loadingData}
+                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loadingData ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                {loadingData ? "Fetching..." : "Submit"}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Step 2: Edit Form with preloaded data */}
+            <div className="px-6 py-5 space-y-5 max-h-[70vh] overflow-y-auto">
+              {/* Campaign & Content Type */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Campaign</label>
+                  <select
+                    value={form.campaign_id}
+                    onChange={(e) => handleEditCampaignChange(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  >
+                    <option value="">Select Campaign</option>
+                    {campaigns.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Content Type</label>
+                  <select
+                    value={form.content_type}
+                    onChange={(e) => handleChange("content_type", e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  >
+                    <option value="">Select Content Type</option>
+                    {(allContentTypes || []).map((ct) => (
+                      <option key={ct.id} value={ct.id}>
+                        {ct.name.replace(/_/g, " ")}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Writer Dropdown */}
+              {showWriterDropdown && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Writer</label>
+                  <select
+                    value={form.writer_id}
+                    onChange={(e) => handleChange("writer_id", e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  >
+                    <option value="">Select Writer</option>
+                    {(allWriters || []).map((w) => (
+                      <option key={w.id} value={w.id}>
+                        {w.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Primary Keyword */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Primary Keyword</label>
+                <input
+                  type="text"
+                  value={form.primary_keyword}
+                  onChange={(e) => handleChange("primary_keyword", e.target.value)}
+                  placeholder="Enter primary keyword"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-700 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+
+              {/* Page Title */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Page Title</label>
+                <input
+                  type="text"
+                  value={form.page_title}
+                  onChange={(e) => handleChange("page_title", e.target.value)}
+                  placeholder="Enter page title"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-700 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+
+              {/* Page Number & Linked URL */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Page Number</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={form.page_number}
+                      readOnly
+                      className="w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-500 shadow-sm cursor-not-allowed"
+                      placeholder={fetchingPageNumber ? "Generating..." : "Auto-generated"}
+                    />
+                    {fetchingPageNumber && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <Loader2 size={16} className="animate-spin text-blue-500" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Linked URL / Page URL</label>
+                  <input
+                    type="url"
+                    value={form.linked_url}
+                    readOnly
+                    className="w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-500 shadow-sm cursor-not-allowed"
+                  />
+                </div>
+              </div>
+
+              {/* Comments */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Comments</label>
+                <textarea
+                  value={form.comments}
+                  onChange={(e) => handleChange("comments", e.target.value)}
+                  placeholder="Enter comments or notes"
+                  rows={3}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-700 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
+                />
+              </div>
+
+              {/* Page Doc URL */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Page Doc URL</label>
+                <input
+                  type="url"
+                  value={form.page_doc_url}
+                  onChange={(e) => handleChange("page_doc_url", e.target.value)}
+                  placeholder="https://docs.google.com/..."
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-700 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+            </div>
+
+            {/* Step 2 Footer */}
+            <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-6 py-4">
+              <button
+                onClick={() => setStep(1)}
+                className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors flex items-center gap-1.5"
+              >
+                <ChevronLeft size={16} /> Back
+              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleClose}
+                  className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors disabled:opacity-50"
+                >
+                  {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                  {saving ? "Saving..." : "Save"}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  Main Component                                                     */
 /* ------------------------------------------------------------------ */
 export default function ContentPipeline() {
@@ -782,6 +1214,7 @@ export default function ContentPipeline() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [addFormOpen, setAddFormOpen] = useState(false);
   const [addFormDate, setAddFormDate] = useState(null);
+  const [rewriteOpen, setRewriteOpen] = useState(false);
 
   /* ---- Fetch Data ---- */
   const fetchPipelines = async () => {
@@ -822,7 +1255,14 @@ export default function ContentPipeline() {
     setAddFormOpen(false);
     setAddFormDate(null);
     if (saved) {
-      fetchPipelines(); // Refresh data after saving
+      fetchPipelines();
+    }
+  };
+
+  const handleRewriteClose = (saved) => {
+    setRewriteOpen(false);
+    if (saved) {
+      fetchPipelines();
     }
   };
 
@@ -849,11 +1289,10 @@ export default function ContentPipeline() {
             Add New
           </button>
           <button
-            onClick={fetchPipelines}
-            disabled={loading}
-            className="inline-flex items-center gap-1.5 sm:gap-2 rounded-lg border border-slate-300 bg-white px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-60"
+            onClick={() => setRewriteOpen(true)}
+            className="inline-flex items-center gap-1.5 sm:gap-2 rounded-lg border border-slate-300 bg-white px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
           >
-            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+            <RefreshCw size={16} />
             Rewrite
           </button>
         </div>
@@ -929,6 +1368,14 @@ export default function ContentPipeline() {
         stages={filters?.stages || []}
         statuses={filters?.statuses || []}
         writers={filters?.writer_id || []}
+      />
+
+      {/* Rewrite Modal */}
+      <RewriteModal
+        open={rewriteOpen}
+        onClose={handleRewriteClose}
+        allContentTypes={filters?.content_types || []}
+        allWriters={filters?.writer_id || []}
       />
     </div>
   );
