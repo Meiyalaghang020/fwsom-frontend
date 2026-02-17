@@ -607,12 +607,79 @@ function CalendarModal({ open, onClose, pipelines, onSelectItem, onDateClick }) 
 }
 
 /* ------------------------------------------------------------------ */
-/*  Pipeline Detail Modal                                              */
+/*  Pipeline Detail / Edit Modal                                       */
 /* ------------------------------------------------------------------ */
-function DetailModal({ open, onClose, item }) {
-  if (!open || !item) return null;
+function DetailModal({ open, onClose, itemId, allContentTypes, allWriters }) {
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [data, setData] = useState(null);
+  const [statuses, setStatuses] = useState([]);
+  const [editStatus, setEditStatus] = useState("");
+  const [editComments, setEditComments] = useState("");
 
-  const content = item.content || {};
+  // Fetch full pipeline data by ID
+  useEffect(() => {
+    if (!open || !itemId) return;
+    setLoading(true);
+    setData(null);
+    const fetchDetail = async () => {
+      try {
+        const res = await api.get(`/v1/content-pipeline/${itemId}`);
+        const d = res.data?.data || res.data;
+        const sts = res.data?.statuses || [];
+        setData(d);
+        setStatuses(sts);
+        setEditStatus(d.status || "");
+        setEditComments(d.content?.comments || "");
+      } catch {
+        setData(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDetail();
+  }, [open, itemId]);
+
+  const handleSave = async () => {
+    if (!data) return;
+    setSaving(true);
+    try {
+      const content = data.content || {};
+      const pageContent = content.page_content || {};
+      const payload = {
+        campaign_id: content.campaign_id || null,
+        primary_keyword: content.primary_keyword || null,
+        page_title: content.page_title || null,
+        content_type_id: content.content_type_id || null,
+        linked_url: content.linked_url || null,
+        comments: editComments || null,
+        content_status: pageContent.content_status || null,
+        write_status: pageContent.write_status || null,
+        page_content_status: pageContent.page_content_status || null,
+        writer_id: pageContent.writer_id || null,
+        page_doc_url: pageContent.page_doc_url || null,
+        design_url: pageContent.design_url || null,
+        stage: data.stage || "Content",
+        pipeline_status: editStatus || data.status || "Pipeline",
+        user_id: data.user_id || null,
+        team_id: data.team_id || null,
+        planned_date: data.planned_date ? data.planned_date.split("T")[0] : null,
+        expected_date: data.expected_date ? data.expected_date.split("T")[0] : null,
+        revised_date: data.revised_date ? data.revised_date.split("T")[0] : null,
+        published_date: data.published_date ? data.published_date.split("T")[0] : null,
+      };
+      await api.put(`/v1/content-pipeline/${data.id}`, payload);
+      onClose(true);
+    } catch {
+      alert("Failed to update pipeline. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!open) return null;
+
+  const content = data?.content || {};
   const pageContent = content.page_content || {};
 
   return (
@@ -622,146 +689,197 @@ function DetailModal({ open, onClose, item }) {
         <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-6 py-4">
           <div>
             <h3 className="text-lg font-bold text-slate-800">Pipeline Details</h3>
-            <p className="text-sm text-slate-500 mt-0.5">{content.page_number || `#${item.id}`}</p>
+            {data && <p className="text-sm text-slate-500 mt-0.5">{content.page_number || `#${data.id}`}</p>}
           </div>
-          <button onClick={onClose} className="rounded-lg p-1.5 hover:bg-slate-200 transition-colors text-slate-500">
+          <button onClick={() => onClose(false)} className="rounded-lg p-1.5 hover:bg-slate-200 transition-colors text-slate-500">
             <X size={20} />
           </button>
         </div>
 
-        {/* Body */}
-        <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
-          {/* Title */}
-          <div>
-            <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-              <FileText size={13} /> Page Title
-            </label>
-            <p className="text-sm font-medium text-slate-800">{content.page_title || "N/A"}</p>
+        {loading ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 size={28} className="animate-spin text-blue-500" />
           </div>
-
-          {/* Stage & Status */}
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                <Layers size={13} /> Stage
-              </label>
-              <span className={`inline-flex items-center rounded-md border px-2.5 py-1 text-xs font-semibold ${getStageColor(item.stage)}`}>
-                {item.stage}
-              </span>
-            </div>
-            <div className="flex-1">
-              <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                <Tag size={13} /> Status
-              </label>
-              <span className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-semibold ${getStatusColor(item.status)}`}>
-                {(item.status || "").replace(/_/g, " ")}
-              </span>
-            </div>
+        ) : !data ? (
+          <div className="flex items-center justify-center py-16 text-slate-400 text-sm">
+            Failed to load pipeline data.
           </div>
-
-          {/* Keyword */}
-          <div>
-            <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-              <Tag size={13} /> Primary Keyword
-            </label>
-            <p className="text-sm text-slate-700">{content.primary_keyword || "N/A"}</p>
-          </div>
-
-          {/* Dates */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                <Calendar size={13} /> Planned Date
-              </label>
-              <p className="text-sm text-slate-700">{formatDate(item.planned_date)}</p>
-            </div>
-            <div>
-              <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                <Calendar size={13} /> Expected Date
-              </label>
-              <p className="text-sm text-slate-700">{formatDate(item.expected_date)}</p>
-            </div>
-            <div>
-              <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                <Calendar size={13} /> Revised Date
-              </label>
-              <p className="text-sm text-slate-700">{formatDate(item.revised_date)}</p>
-            </div>
-            <div>
-              <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                <Calendar size={13} /> Published Date
-              </label>
-              <p className="text-sm text-slate-700">{formatDate(item.published_date)}</p>
-            </div>
-          </div>
-
-          {/* Assigned User */}
-          {item.user && (
-            <div>
-              <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                <User size={13} /> Assigned To
-              </label>
-              <p className="text-sm text-slate-700">{item.user.name}</p>
-              <p className="text-xs text-slate-400">{item.user.email}</p>
-            </div>
-          )}
-
-          {/* Comments */}
-          {content.comments && (
-            <div>
-              <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-                <MessageSquare size={13} /> Comments
-              </label>
-              <p className="text-sm text-slate-600 bg-slate-50 rounded-lg p-3 border border-slate-100">
-                {content.comments}
-              </p>
-            </div>
-          )}
-
-          {/* Links */}
-          <div className="flex flex-col gap-3">
-            {content.linked_url && (
+        ) : (
+          <>
+            {/* Body */}
+            <div className="px-6 py-5 space-y-4 max-h-[65vh] overflow-y-auto scrollbar-thin">
+              {/* Title */}
               <div>
-                <p className="text-xs font-medium text-slate-500 mb-1">Linked URL / Page URL</p>
-                <a
-                  href={content.linked_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-blue-600 hover:text-blue-700 hover:underline break-all"
-                >
-                  {content.linked_url}
-                </a>
+                <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
+                  <FileText size={13} /> Page Title
+                </label>
+                <p className="text-sm font-medium text-slate-800">{content.page_title || "N/A"}</p>
               </div>
-            )}
-            {pageContent.page_doc_url && (
-              <div>
-                <p className="text-xs font-medium text-slate-500 mb-1">Page Doc URL</p>
-                <a
-                  href={pageContent.page_doc_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-blue-600 hover:text-blue-700 hover:underline break-all"
-                >
-                  {pageContent.page_doc_url}
-                </a>
-              </div>
-            )}
-          </div>
 
-          {/* Timestamps */}
-          <div className="border-t border-slate-100 pt-3">
-            <div className="grid grid-cols-2 gap-3 text-xs text-slate-400">
-              <div>
-                <span className="font-semibold">Created:</span>{" "}
-                {formatDate(item.created_at)}
+              {/* Stage & Status (editable) */}
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
+                    <Layers size={13} /> Stage
+                  </label>
+                  <span className={`inline-flex items-center rounded-md border px-2.5 py-1 text-xs font-semibold ${getStageColor(data.stage)}`}>
+                    {data.stage}
+                  </span>
+                </div>
+                <div className="flex-1">
+                  <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                    <Tag size={13} /> Status
+                  </label>
+                  <select
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  >
+                    {statuses.map((s) => (
+                      <option key={s.id} value={s.name}>
+                        {s.name.replace(/_/g, " ")}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
+
+              {/* Keyword */}
               <div>
-                <span className="font-semibold">Updated:</span>{" "}
-                {formatDate(item.updated_at)}
+                <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
+                  <Tag size={13} /> Primary Keyword
+                </label>
+                <p className="text-sm text-slate-700">{content.primary_keyword || "N/A"}</p>
+              </div>
+
+              {/* Dates */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
+                    <Calendar size={13} /> Planned Date
+                  </label>
+                  <p className="text-sm text-slate-700">{formatDate(data.planned_date)}</p>
+                </div>
+                <div>
+                  <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
+                    <Calendar size={13} /> Expected Date
+                  </label>
+                  <p className="text-sm text-slate-700">{formatDate(data.expected_date)}</p>
+                </div>
+                <div>
+                  <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
+                    <Calendar size={13} /> Revised Date
+                  </label>
+                  <p className="text-sm text-slate-700">{formatDate(data.revised_date)}</p>
+                </div>
+                <div>
+                  <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
+                    <Calendar size={13} /> Published Date
+                  </label>
+                  <p className="text-sm text-slate-700">{formatDate(data.published_date)}</p>
+                </div>
+              </div>
+
+              {/* Writer */}
+              {pageContent.writer && (
+                <div>
+                  <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
+                    <User size={13} /> Writer
+                  </label>
+                  <p className="text-sm text-slate-700">{pageContent.writer.name}</p>
+                  <p className="text-xs text-slate-400">{pageContent.writer.email}</p>
+                </div>
+              )}
+
+              {/* Assigned User */}
+              {data.user && (
+                <div>
+                  <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
+                    <User size={13} /> Assigned To
+                  </label>
+                  <p className="text-sm text-slate-700">{data.user.name}</p>
+                  <p className="text-xs text-slate-400">{data.user.email}</p>
+                </div>
+              )}
+
+              {/* Comments (editable) */}
+              <div>
+                <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                  <MessageSquare size={13} /> Comments
+                </label>
+                <textarea
+                  value={editComments}
+                  onChange={(e) => setEditComments(e.target.value)}
+                  rows={3}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-700 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
+                  placeholder="Enter comments..."
+                />
+              </div>
+
+              {/* Links */}
+              <div className="flex flex-col gap-3">
+                {content.linked_url && (
+                  <div>
+                    <p className="text-xs font-medium text-slate-500 mb-1">Linked URL / Page URL</p>
+                    <a
+                      href={content.linked_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-blue-600 hover:text-blue-700 hover:underline break-all"
+                    >
+                      {content.linked_url}
+                    </a>
+                  </div>
+                )}
+                {pageContent.page_doc_url && (
+                  <div>
+                    <p className="text-xs font-medium text-slate-500 mb-1">Page Doc URL</p>
+                    <a
+                      href={pageContent.page_doc_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-blue-600 hover:text-blue-700 hover:underline break-all"
+                    >
+                      {pageContent.page_doc_url}
+                    </a>
+                  </div>
+                )}
+              </div>
+
+              {/* Timestamps */}
+              <div className="border-t border-slate-100 pt-3">
+                <div className="grid grid-cols-2 gap-3 text-xs text-slate-400">
+                  <div>
+                    <span className="font-semibold">Created:</span>{" "}
+                    {formatDate(data.created_at)}
+                  </div>
+                  <div>
+                    <span className="font-semibold">Updated:</span>{" "}
+                    {formatDate(data.updated_at)}
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4">
+              <button
+                onClick={() => onClose(false)}
+                className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
+              >
+                Close
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors disabled:opacity-50"
+              >
+                {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                {saving ? "Saving..." : "Submit"}
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -1411,7 +1529,7 @@ export default function ContentPipeline() {
   }, []);
 
   const handleCalendarItemSelect = (item) => {
-    setSelectedItem(item);
+    setSelectedItem(item.id);
     setDetailOpen(true);
   };
 
@@ -1520,11 +1638,17 @@ export default function ContentPipeline() {
         onDateClick={handleDateClick}
       />
 
-      {/* Detail Modal */}
+      {/* Detail / Edit Modal */}
       <DetailModal
         open={detailOpen}
-        onClose={() => { setDetailOpen(false); setSelectedItem(null); }}
-        item={selectedItem}
+        onClose={(saved) => {
+          setDetailOpen(false);
+          setSelectedItem(null);
+          if (saved) fetchPipelines();
+        }}
+        itemId={selectedItem}
+        allContentTypes={filters?.content_types || []}
+        allWriters={filters?.writer_id || []}
       />
 
       {/* Add Pipeline Form Modal */}
