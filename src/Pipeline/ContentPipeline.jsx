@@ -967,9 +967,9 @@ function RewriteModal({ open, onClose, allContentTypes, allWriters }) {
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl overflow-hidden">
+      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-6 py-4 rounded-t-2xl">
           <div>
             <h3 className="text-lg font-bold text-slate-800">
               {step === 1 ? "Rewrite - Select Content" : "Rewrite Pipeline Content"}
@@ -988,7 +988,7 @@ function RewriteModal({ open, onClose, allContentTypes, allWriters }) {
         {step === 1 ? (
           <>
             {/* Step 1: Campaign & URL Selection */}
-            <div className="px-6 py-5 space-y-5">
+            <div className="px-6 py-5 space-y-5 overflow-visible">
               {/* Searchable Campaign Dropdown */}
               <div ref={campaignRef}>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">Campaign</label>
@@ -1182,7 +1182,7 @@ function RewriteModal({ open, onClose, allContentTypes, allWriters }) {
             </div>
 
             {/* Step 1 Footer */}
-            <div className="flex items-center justify-end gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4">
+            <div className="flex items-center justify-end gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4 rounded-b-2xl">
               <button
                 onClick={handleClose}
                 className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
@@ -1336,7 +1336,7 @@ function RewriteModal({ open, onClose, allContentTypes, allWriters }) {
             </div>
 
             {/* Step 2 Footer */}
-            <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-6 py-4">
+            <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-6 py-4 rounded-b-2xl">
               <button
                 onClick={() => setStep(1)}
                 className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors flex items-center gap-1.5"
