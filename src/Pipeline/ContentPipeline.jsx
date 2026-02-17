@@ -554,24 +554,31 @@ function CalendarModal({ open, onClose, pipelines, onSelectItem, onDateClick }) 
             if (day === null) return <div key={`blank-${idx}`} className="min-h-[90px]" />;
             const dateKey = `${year}-${month}-${day}`;
             const items = pipelinesByDate[dateKey] || [];
-            const isToday = isSameDay(new Date(year, month, day), today);
+            const cellDate = new Date(year, month, day);
+            const isToday = isSameDay(cellDate, today);
+            const isPast = cellDate < new Date(today.getFullYear(), today.getMonth(), today.getDate());
+            const canAdd = !isPast;
             return (
               <div
                 key={day}
-                onClick={() => onDateClick(new Date(year, month, day))}
-                className={`min-h-[90px] rounded-lg border p-2 transition-colors cursor-pointer group ${
+                onClick={() => canAdd && onDateClick(cellDate)}
+                className={`min-h-[90px] rounded-lg border p-2 transition-colors group ${
                   isToday
-                    ? "border-blue-300 bg-blue-50/50"
-                    : "border-slate-100 hover:border-blue-200 hover:bg-blue-50/30"
+                    ? "border-blue-300 bg-blue-50/50 cursor-pointer"
+                    : canAdd
+                      ? "border-slate-100 hover:border-blue-200 hover:bg-blue-50/30 cursor-pointer"
+                      : "border-slate-100 bg-slate-50/40 cursor-default"
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className={`text-xs font-semibold ${isToday ? "text-blue-600" : "text-slate-500 group-hover:text-blue-500"}`}>
+                  <span className={`text-xs font-semibold ${isToday ? "text-blue-600" : isPast ? "text-slate-400" : "text-slate-500 group-hover:text-blue-500"}`}>
                     {day}
                   </span>
-                  <span className="opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Plus size={12} className="text-blue-400" />
-                  </span>
+                  {canAdd && (
+                    <span className="opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Plus size={12} className="text-blue-400" />
+                    </span>
+                  )}
                 </div>
                 <div className="mt-1.5 flex flex-col gap-1 max-h-[72px] overflow-y-auto scrollbar-thin">
                   {items.map((item) => (
