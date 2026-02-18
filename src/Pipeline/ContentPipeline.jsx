@@ -888,7 +888,6 @@ function DetailModal({ open, onClose, itemId, allContentTypes, allWriters }) {
 /*  Rewrite Modal                                                      */
 /* ------------------------------------------------------------------ */
 function RewriteModal({ open, onClose, allContentTypes, allWriters }) {
-  const [step, setStep] = useState(1); // 1 = select campaign+url, 2 = edit form
   const [campaigns, setCampaigns] = useState([]);
   const [linkedUrls, setLinkedUrls] = useState([]);
   const [selectedCampaignId, setSelectedCampaignId] = useState("");
@@ -898,8 +897,7 @@ function RewriteModal({ open, onClose, allContentTypes, allWriters }) {
   const [loadingData, setLoadingData] = useState(false);
   const [form, setForm] = useState(INITIAL_FORM);
   const [saving, setSaving] = useState(false);
-  const [fetchingPageNumber, setFetchingPageNumber] = useState(false);
-  const [contentData, setContentData] = useState(null);
+  const [contentLoaded, setContentLoaded] = useState(false);
   const [campaignSearch, setCampaignSearch] = useState("");
   const [campaignDropdownOpen, setCampaignDropdownOpen] = useState(false);
   const [urlSearch, setUrlSearch] = useState("");
@@ -933,12 +931,11 @@ function RewriteModal({ open, onClose, allContentTypes, allWriters }) {
   // Fetch campaigns on open
   useEffect(() => {
     if (!open) return;
-    setStep(1);
     setSelectedCampaignId("");
     setSelectedUrl("");
     setLinkedUrls([]);
     setForm(INITIAL_FORM);
-    setContentData(null);
+    setContentLoaded(false);
     setCampaignSearch("");
     setCampaignDropdownOpen(false);
     setUrlSearch("");
@@ -965,6 +962,9 @@ function RewriteModal({ open, onClose, allContentTypes, allWriters }) {
     setUrlSearch("");
     setUrlDropdownOpen(false);
     setCampaignDropdownOpen(false);
+    // Reset form fields but keep campaign
+    setForm(INITIAL_FORM);
+    setContentLoaded(false);
     if (!campId) return;
     setLoadingUrls(true);
     try {
@@ -977,30 +977,38 @@ function RewriteModal({ open, onClose, allContentTypes, allWriters }) {
     }
   };
 
-  // Submit step 1 - fetch content by URL
-  const handleFetchContent = async () => {
-    if (!selectedCampaignId || !selectedUrl) return;
+  // Auto-fetch content when URL is selected
+  const handleUrlSelect = async (url) => {
+    setSelectedUrl(url);
+    setUrlSearch("");
+    setUrlDropdownOpen(false);
+    if (!url || !selectedCampaignId) {
+      setForm(INITIAL_FORM);
+      setContentLoaded(false);
+      return;
+    }
     setLoadingData(true);
+    setContentLoaded(false);
     try {
-      const res = await api.get(`/v1/content-pipeline/by-url?campaign_id=${selectedCampaignId}&linked_url=${encodeURIComponent(selectedUrl)}`);
+      const res = await api.get(`/v1/content-pipeline/by-url?campaign_id=${selectedCampaignId}&linked_url=${encodeURIComponent(url)}`);
       const data = res.data?.data || {};
       const content = data.content || {};
       const pageContent = content.page_content || {};
-      setContentData(data);
       setForm({
         campaign_id: String(content.campaign_id || selectedCampaignId),
         content_type: String(content.content_type_id || ""),
         primary_keyword: content.primary_keyword || "",
         page_title: content.page_title || "",
         page_number: content.page_number || "",
-        linked_url: content.linked_url || selectedUrl,
+        linked_url: content.linked_url || url,
         comments: content.comments || "",
         page_doc_url: pageContent.page_doc_url || "",
         writer_id: String(pageContent.writer_id || ""),
       });
-      setStep(2);
+      setContentLoaded(true);
     } catch {
-      alert("Failed to fetch content data. Please try again.");
+      setForm(INITIAL_FORM);
+      setContentLoaded(false);
     } finally {
       setLoadingData(false);
     }
@@ -1008,22 +1016,6 @@ function RewriteModal({ open, onClose, allContentTypes, allWriters }) {
 
   const handleChange = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
-  };
-
-  // Re-fetch page number when campaign changes in edit form
-  const handleEditCampaignChange = async (campaignId) => {
-    setForm((prev) => ({ ...prev, campaign_id: campaignId, page_number: "" }));
-    if (!campaignId) return;
-    setFetchingPageNumber(true);
-    try {
-      const res = await api.get(`/v1/content-pipeline/generate-page-number/${campaignId}`);
-      const pageNum = res?.data?.data?.page_number || res?.data?.page_number || "";
-      setForm((prev) => ({ ...prev, page_number: pageNum }));
-    } catch {
-      setForm((prev) => ({ ...prev, page_number: "" }));
-    } finally {
-      setFetchingPageNumber(false);
-    }
   };
 
   const handleSave = async () => {
@@ -1076,7 +1068,6 @@ function RewriteModal({ open, onClose, allContentTypes, allWriters }) {
 
   const handleClose = () => {
     setForm(INITIAL_FORM);
-    setStep(1);
     onClose(false);
   };
 
@@ -1084,271 +1075,227 @@ function RewriteModal({ open, onClose, allContentTypes, allWriters }) {
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
+      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-6 py-4 rounded-t-2xl">
-          <div>
-            <h3 className="text-lg font-bold text-slate-800">
-              {step === 1 ? "Rewrite - Select Content" : "Rewrite Pipeline Content"}
-            </h3>
-            {step === 2 && contentData?.content?.campaign?.name && (
-              <p className="text-sm text-slate-500 mt-0.5">
-                {contentData.content.campaign.name} - {form.page_number}
-              </p>
-            )}
-          </div>
+        <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-6 py-4 rounded-t-2xl shrink-0">
+          <h3 className="text-lg font-bold text-slate-800">Rewrite Pipeline Content</h3>
           <button onClick={handleClose} className="rounded-lg p-1.5 hover:bg-slate-200 transition-colors text-slate-500">
             <X size={20} />
           </button>
         </div>
 
-        {step === 1 ? (
-          <>
-            {/* Step 1: Campaign & URL Selection */}
-            <div className="px-6 py-5 space-y-5 overflow-visible">
-              {/* Searchable Campaign Dropdown */}
-              <div ref={campaignRef}>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Campaign</label>
-                {loadingCampaigns ? (
-                  <div className="flex items-center gap-2 py-2.5 text-sm text-slate-500">
-                    <Loader2 size={16} className="animate-spin" /> Loading campaigns...
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <div
-                      onClick={() => setCampaignDropdownOpen(true)}
-                      className="w-full flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm shadow-sm cursor-pointer hover:border-blue-400 transition-colors"
+        {/* Scrollable Body */}
+        <div className="px-6 py-5 space-y-5 overflow-y-auto flex-1 scrollbar-thin">
+          {/* Searchable Campaign Dropdown */}
+          <div ref={campaignRef} className="relative">
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Campaign</label>
+            {loadingCampaigns ? (
+              <div className="flex items-center gap-2 py-2.5 text-sm text-slate-500">
+                <Loader2 size={16} className="animate-spin" /> Loading campaigns...
+              </div>
+            ) : (
+              <div className="relative">
+                <div
+                  onClick={() => setCampaignDropdownOpen(true)}
+                  className="w-full flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm shadow-sm cursor-pointer hover:border-blue-400 transition-colors"
+                >
+                  <Search size={14} className="text-slate-400 shrink-0" />
+                  {campaignDropdownOpen ? (
+                    <input
+                      autoFocus
+                      type="text"
+                      value={campaignSearch}
+                      onChange={(e) => setCampaignSearch(e.target.value)}
+                      placeholder="Search campaigns..."
+                      className="flex-1 outline-none bg-transparent text-slate-700 placeholder:text-slate-400"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  ) : (
+                    <span className={`flex-1 truncate ${selectedCampaignId ? "text-slate-700" : "text-slate-400"}`}>
+                      {selectedCampaignId
+                        ? (() => {
+                          const c = campaigns.find((c) => String(c.id) === String(selectedCampaignId));
+                          return c ? `${c.name} (${c.short_code})` : "Select Campaign";
+                        })()
+                        : "Select Campaign"}
+                    </span>
+                  )}
+                  {selectedCampaignId && !campaignDropdownOpen && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCampaignSelect("");
+                        setCampaignSearch("");
+                      }}
+                      className="text-slate-400 hover:text-slate-600"
                     >
-                      <Search size={14} className="text-slate-400 shrink-0" />
-                      {campaignDropdownOpen ? (
-                        <input
-                          autoFocus
-                          type="text"
-                          value={campaignSearch}
-                          onChange={(e) => setCampaignSearch(e.target.value)}
-                          placeholder="Search campaigns..."
-                          className="flex-1 outline-none bg-transparent text-slate-700 placeholder:text-slate-400"
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      ) : (
-                        <span className={`flex-1 truncate ${selectedCampaignId ? "text-slate-700" : "text-slate-400"}`}>
-                          {selectedCampaignId
-                            ? (() => {
-                              const c = campaigns.find((c) => String(c.id) === String(selectedCampaignId));
-                              return c ? `${c.name} (${c.short_code})` : "Select Campaign";
-                            })()
-                            : "Select Campaign"}
-                        </span>
-                      )}
-                      {selectedCampaignId && !campaignDropdownOpen && (
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+                {campaignDropdownOpen && (
+                  <div className="absolute z-20 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg max-h-48 overflow-y-auto scrollbar-thin">
+                    {campaigns
+                      .filter((c) => {
+                        if (!campaignSearch) return true;
+                        const q = campaignSearch.toLowerCase();
+                        return c.name.toLowerCase().includes(q) || c.short_code.toLowerCase().includes(q);
+                      })
+                      .map((c) => (
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCampaignSelect("");
+                          key={c.id}
+                          onClick={() => {
+                            handleCampaignSelect(String(c.id));
                             setCampaignSearch("");
                           }}
-                          className="text-slate-400 hover:text-slate-600"
+                          className={`w-full px-3 py-2.5 text-left text-sm hover:bg-blue-50 transition-colors flex items-center gap-2 ${String(c.id) === String(selectedCampaignId) ? "bg-blue-50 text-blue-700 font-medium" : "text-slate-700"}`}
                         >
-                          <X size={14} />
+                          <span className="inline-flex h-6 shrink-0 items-center justify-center rounded bg-blue-100 px-1.5 text-[10px] font-bold text-blue-600">
+                            {c.short_code}
+                          </span>
+                          <span className="truncate">{c.name}</span>
                         </button>
-                      )}
-                    </div>
-                    {campaignDropdownOpen && (
-                      <div className="absolute z-20 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg max-h-48 overflow-y-auto scrollbar-thin">
-                        {campaigns
-                          .filter((c) => {
-                            if (!campaignSearch) return true;
-                            const q = campaignSearch.toLowerCase();
-                            return c.name.toLowerCase().includes(q) || c.short_code.toLowerCase().includes(q);
-                          })
-                          .map((c) => (
-                            <button
-                              key={c.id}
-                              onClick={() => {
-                                handleCampaignSelect(String(c.id));
-                                setCampaignSearch("");
-                              }}
-                              className={`w-full px-3 py-2.5 text-left text-sm hover:bg-blue-50 transition-colors flex items-center gap-2 ${String(c.id) === String(selectedCampaignId) ? "bg-blue-50 text-blue-700 font-medium" : "text-slate-700"
-                                }`}
-                            >
-                              <span className="inline-flex h-6 shrink-0 items-center justify-center rounded bg-blue-100 px-1.5 text-[10px] font-bold text-blue-600">
-                                {c.short_code}
-                              </span>
-                              <span className="truncate">{c.name}</span>
-                            </button>
-                          ))}
-                        {campaigns.filter((c) => {
-                          if (!campaignSearch) return true;
-                          const q = campaignSearch.toLowerCase();
-                          return c.name.toLowerCase().includes(q) || c.short_code.toLowerCase().includes(q);
-                        }).length === 0 && (
-                            <p className="px-3 py-3 text-sm text-slate-400 text-center">No campaigns found</p>
-                          )}
-                      </div>
+                      ))}
+                    {campaigns.filter((c) => {
+                      if (!campaignSearch) return true;
+                      const q = campaignSearch.toLowerCase();
+                      return c.name.toLowerCase().includes(q) || c.short_code.toLowerCase().includes(q);
+                    }).length === 0 && (
+                      <p className="px-3 py-3 text-sm text-slate-400 text-center">No campaigns found</p>
                     )}
                   </div>
                 )}
               </div>
+            )}
+          </div>
 
-              {/* Searchable Linked URL Dropdown */}
-              <div ref={urlRef}>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Linked URL</label>
-                {loadingUrls ? (
-                  <div className="flex items-center gap-2 py-2.5 text-sm text-slate-500">
-                    <Loader2 size={16} className="animate-spin" /> Loading URLs...
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <div
-                      onClick={() => selectedCampaignId && setUrlDropdownOpen(true)}
-                      className={`w-full flex items-center gap-2 rounded-lg border bg-white px-3 py-2.5 text-sm shadow-sm transition-colors ${!selectedCampaignId
-                        ? "border-slate-200 bg-slate-100 cursor-not-allowed"
-                        : "border-slate-300 cursor-pointer hover:border-blue-400"
-                        }`}
+          {/* Searchable Linked URL Dropdown */}
+          <div ref={urlRef} className="relative">
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Linked URL</label>
+            {loadingUrls ? (
+              <div className="flex items-center gap-2 py-2.5 text-sm text-slate-500">
+                <Loader2 size={16} className="animate-spin" /> Loading URLs...
+              </div>
+            ) : (
+              <div className="relative">
+                <div
+                  onClick={() => selectedCampaignId && setUrlDropdownOpen(true)}
+                  className={`w-full flex items-center gap-2 rounded-lg border bg-white px-3 py-2.5 text-sm shadow-sm transition-colors ${!selectedCampaignId
+                    ? "border-slate-200 bg-slate-100 cursor-not-allowed"
+                    : "border-slate-300 cursor-pointer hover:border-blue-400"
+                    }`}
+                >
+                  <Search size={14} className="text-slate-400 shrink-0" />
+                  {urlDropdownOpen ? (
+                    <input
+                      autoFocus
+                      type="text"
+                      value={urlSearch}
+                      onChange={(e) => setUrlSearch(e.target.value)}
+                      placeholder="Search by title or URL..."
+                      className="flex-1 outline-none bg-transparent text-slate-700 placeholder:text-slate-400"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  ) : (
+                    <span className={`flex-1 truncate ${selectedUrl ? "text-slate-700" : "text-slate-400"}`}>
+                      {selectedUrl
+                        ? (() => {
+                          const u = linkedUrls.find((u) => u.linked_url === selectedUrl);
+                          return u?.page_title || selectedUrl;
+                        })()
+                        : "Select Linked URL"}
+                    </span>
+                  )}
+                  {selectedUrl && !urlDropdownOpen && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleUrlSelect("");
+                      }}
+                      className="text-slate-400 hover:text-slate-600"
                     >
-                      <Search size={14} className="text-slate-400 shrink-0" />
-                      {urlDropdownOpen ? (
-                        <input
-                          autoFocus
-                          type="text"
-                          value={urlSearch}
-                          onChange={(e) => setUrlSearch(e.target.value)}
-                          placeholder="Search by title or URL..."
-                          className="flex-1 outline-none bg-transparent text-slate-700 placeholder:text-slate-400"
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      ) : (
-                        <span className={`flex-1 truncate ${selectedUrl ? "text-slate-700" : "text-slate-400"}`}>
-                          {selectedUrl
-                            ? (() => {
-                              const u = linkedUrls.find((u) => u.linked_url === selectedUrl);
-                              return u?.page_title || selectedUrl;
-                            })()
-                            : "Select Linked URL"}
-                        </span>
-                      )}
-                      {selectedUrl && !urlDropdownOpen && (
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+                {urlDropdownOpen && (
+                  <div className="absolute z-20 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg max-h-56 overflow-y-auto scrollbar-thin">
+                    {linkedUrls
+                      .filter((u) => {
+                        if (!urlSearch) return true;
+                        const q = urlSearch.toLowerCase();
+                        return (
+                          (u.page_title && u.page_title.toLowerCase().includes(q)) ||
+                          (u.linked_url && u.linked_url.toLowerCase().includes(q)) ||
+                          (u.page_number && u.page_number.toLowerCase().includes(q))
+                        );
+                      })
+                      .map((u) => (
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedUrl("");
-                            setUrlSearch("");
-                          }}
-                          className="text-slate-400 hover:text-slate-600"
+                          key={u.id}
+                          onClick={() => handleUrlSelect(u.linked_url)}
+                          className={`w-full px-3 py-2.5 text-left hover:bg-blue-50 transition-colors ${u.linked_url === selectedUrl ? "bg-blue-50" : ""}`}
                         >
-                          <X size={14} />
+                          <div className="flex items-center gap-2">
+                            {u.page_number && (
+                              <span className="inline-flex h-5 shrink-0 items-center justify-center rounded bg-slate-100 px-1.5 text-[10px] font-bold text-slate-600">
+                                {u.page_number}
+                              </span>
+                            )}
+                            <span className="text-sm font-medium text-slate-700 truncate">{u.page_title || "Untitled"}</span>
+                          </div>
+                          <p className="text-xs text-slate-400 truncate mt-0.5">{u.linked_url}</p>
                         </button>
-                      )}
-                    </div>
-                    {urlDropdownOpen && (
-                      <div className="absolute z-20 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg max-h-56 overflow-y-auto scrollbar-thin">
-                        {linkedUrls
-                          .filter((u) => {
-                            if (!urlSearch) return true;
-                            const q = urlSearch.toLowerCase();
-                            return (
-                              (u.page_title && u.page_title.toLowerCase().includes(q)) ||
-                              (u.linked_url && u.linked_url.toLowerCase().includes(q)) ||
-                              (u.page_number && u.page_number.toLowerCase().includes(q))
-                            );
-                          })
-                          .map((u) => (
-                            <button
-                              key={u.id}
-                              onClick={() => {
-                                setSelectedUrl(u.linked_url);
-                                setUrlSearch("");
-                                setUrlDropdownOpen(false);
-                              }}
-                              className={`w-full px-3 py-2.5 text-left hover:bg-blue-50 transition-colors ${u.linked_url === selectedUrl ? "bg-blue-50" : ""
-                                }`}
-                            >
-                              <div className="flex items-center gap-2">
-                                {u.page_number && (
-                                  <span className="inline-flex h-5 shrink-0 items-center justify-center rounded bg-slate-100 px-1.5 text-[10px] font-bold text-slate-600">
-                                    {u.page_number}
-                                  </span>
-                                )}
-                                <span className="text-sm font-medium text-slate-700 truncate">{u.page_title || "Untitled"}</span>
-                              </div>
-                              <p className="text-xs text-slate-400 truncate mt-0.5 ml-0">{u.linked_url}</p>
-                            </button>
-                          ))}
-                        {linkedUrls.filter((u) => {
-                          if (!urlSearch) return true;
-                          const q = urlSearch.toLowerCase();
-                          return (
-                            (u.page_title && u.page_title.toLowerCase().includes(q)) ||
-                            (u.linked_url && u.linked_url.toLowerCase().includes(q)) ||
-                            (u.page_number && u.page_number.toLowerCase().includes(q))
-                          );
-                        }).length === 0 && (
-                            <p className="px-3 py-3 text-sm text-slate-400 text-center">No URLs found</p>
-                          )}
-                      </div>
+                      ))}
+                    {linkedUrls.filter((u) => {
+                      if (!urlSearch) return true;
+                      const q = urlSearch.toLowerCase();
+                      return (
+                        (u.page_title && u.page_title.toLowerCase().includes(q)) ||
+                        (u.linked_url && u.linked_url.toLowerCase().includes(q)) ||
+                        (u.page_number && u.page_number.toLowerCase().includes(q))
+                      );
+                    }).length === 0 && (
+                      <p className="px-3 py-3 text-sm text-slate-400 text-center">No URLs found</p>
                     )}
                   </div>
                 )}
-                {selectedUrl && (
-                  <p className="mt-1.5 text-xs text-blue-500 break-all">{selectedUrl}</p>
-                )}
               </div>
-            </div>
+            )}
+            {selectedUrl && (
+              <p className="mt-1.5 text-xs text-blue-500 break-all">{selectedUrl}</p>
+            )}
+          </div>
 
-            {/* Step 1 Footer */}
-            <div className="flex items-center justify-end gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4 rounded-b-2xl">
-              <button
-                onClick={handleClose}
-                className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
-              >
-                Close
-              </button>
-              <button
-                onClick={handleFetchContent}
-                disabled={!selectedCampaignId || !selectedUrl || loadingData}
-                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loadingData ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-                {loadingData ? "Fetching..." : "Submit"}
-              </button>
+          {/* Loading indicator while fetching content */}
+          {loadingData && (
+            <div className="flex items-center justify-center gap-2 py-6 text-sm text-slate-500">
+              <Loader2 size={18} className="animate-spin text-blue-500" />
+              Loading content details...
             </div>
-          </>
-        ) : (
-          <>
-            {/* Step 2: Edit Form with preloaded data */}
-            <div className="px-6 py-5 space-y-5 max-h-[70vh] overflow-y-auto">
-              {/* Campaign & Content Type */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Campaign</label>
-                  <select
-                    value={form.campaign_id}
-                    onChange={(e) => handleEditCampaignChange(e.target.value)}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  >
-                    <option value="">Select Campaign</option>
-                    {campaigns.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Content Type</label>
-                  <select
-                    value={form.content_type}
-                    onChange={(e) => handleChange("content_type", e.target.value)}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  >
-                    <option value="">Select Content Type</option>
-                    {(allContentTypes || []).map((ct) => (
-                      <option key={ct.id} value={ct.id}>
-                        {ct.name.replace(/_/g, " ")}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+          )}
+
+          {/* Form fields - shown after content is loaded */}
+          {contentLoaded && !loadingData && (
+            <>
+              {/* Divider */}
+              <div className="border-t border-slate-200 pt-1" />
+
+              {/* Content Type */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Content Type</label>
+                <select
+                  value={form.content_type}
+                  onChange={(e) => handleChange("content_type", e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                >
+                  <option value="">Select Content Type</option>
+                  {(allContentTypes || []).map((ct) => (
+                    <option key={ct.id} value={ct.id}>
+                      {ct.name.replace(/_/g, " ")}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* Writer Dropdown */}
@@ -1394,34 +1341,15 @@ function RewriteModal({ open, onClose, allContentTypes, allWriters }) {
                 />
               </div>
 
-              {/* Page Number & Linked URL */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Page Number</label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={form.page_number}
-                      readOnly
-                      className="w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-500 shadow-sm cursor-not-allowed"
-                      placeholder={fetchingPageNumber ? "Generating..." : "Auto-generated"}
-                    />
-                    {fetchingPageNumber && (
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                        <Loader2 size={16} className="animate-spin text-blue-500" />
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Linked URL / Page URL</label>
-                  <input
-                    type="url"
-                    value={form.linked_url}
-                    readOnly
-                    className="w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-500 shadow-sm cursor-not-allowed"
-                  />
-                </div>
+              {/* Page Number */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Page Number</label>
+                <input
+                  type="text"
+                  value={form.page_number}
+                  readOnly
+                  className="w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-500 shadow-sm cursor-not-allowed"
+                />
               </div>
 
               {/* Comments */}
@@ -1447,35 +1375,27 @@ function RewriteModal({ open, onClose, allContentTypes, allWriters }) {
                   className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-700 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 />
               </div>
-            </div>
+            </>
+          )}
+        </div>
 
-            {/* Step 2 Footer */}
-            <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-6 py-4 rounded-b-2xl">
-              <button
-                onClick={() => setStep(1)}
-                className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors flex items-center gap-1.5"
-              >
-                <ChevronLeft size={16} /> Back
-              </button>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={handleClose}
-                  className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
-                >
-                  Close
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors disabled:opacity-50"
-                >
-                  {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                  {saving ? "Saving..." : "Save"}
-                </button>
-              </div>
-            </div>
-          </>
-        )}
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4 rounded-b-2xl shrink-0">
+          <button
+            onClick={handleClose}
+            className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
+          >
+            Close
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || !contentLoaded}
+            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            {saving ? "Saving..." : "Save"}
+          </button>
+        </div>
       </div>
     </div>
   );
