@@ -1084,8 +1084,8 @@ function RewriteModal({ open, onClose, allContentTypes, allWriters }) {
           </button>
         </div>
 
-        {/* Scrollable Body */}
-        <div className="px-6 py-5 space-y-5 overflow-y-auto flex-1 scrollbar-thin">
+        {/* Selection Area - non-scrollable so dropdowns are not clipped */}
+        <div className="px-6 pt-5 pb-3 space-y-4 shrink-0 relative z-10">
           {/* Searchable Campaign Dropdown */}
           <div ref={campaignRef} className="relative">
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Campaign</label>
@@ -1134,7 +1134,7 @@ function RewriteModal({ open, onClose, allContentTypes, allWriters }) {
                   )}
                 </div>
                 {campaignDropdownOpen && (
-                  <div className="absolute z-20 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg max-h-48 overflow-y-auto scrollbar-thin">
+                  <div className="absolute z-30 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg max-h-48 overflow-y-auto scrollbar-thin">
                     {campaigns
                       .filter((c) => {
                         if (!campaignSearch) return true;
@@ -1219,7 +1219,7 @@ function RewriteModal({ open, onClose, allContentTypes, allWriters }) {
                   )}
                 </div>
                 {urlDropdownOpen && (
-                  <div className="absolute z-20 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg max-h-56 overflow-y-auto scrollbar-thin">
+                  <div className="absolute z-30 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg max-h-56 overflow-y-auto scrollbar-thin">
                     {linkedUrls
                       .filter((u) => {
                         if (!urlSearch) return true;
@@ -1266,7 +1266,10 @@ function RewriteModal({ open, onClose, allContentTypes, allWriters }) {
               <p className="mt-1.5 text-xs text-blue-500 break-all">{selectedUrl}</p>
             )}
           </div>
+        </div>
 
+        {/* Scrollable Form Body */}
+        <div className="px-6 pb-5 space-y-5 overflow-y-auto flex-1 scrollbar-thin">
           {/* Loading indicator while fetching content */}
           {loadingData && (
             <div className="flex items-center justify-center gap-2 py-6 text-sm text-slate-500">
